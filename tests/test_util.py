@@ -24,4 +24,9 @@ import hi_capsule
 
 
 class TestExecuteFunction(unittest.TestCase):
-    pass
+
+    def test_execute_command_1(self):
+        result = hi_capsule.execute_command('echo -n test')
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, 'test')
+        self.assertEqual(result.stderr, '')
