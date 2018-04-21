@@ -29,7 +29,23 @@ import tempfile
 
 BLAST_FORMAT = ['qseqid', 'sseqid', 'qlen', 'slen', 'qstart', 'qend', 'sstart', 'send',
                 'length', 'evalue', 'bitscore', 'pident', 'nident', 'mismatch', 'gaps']
+REGION_ONE = ('bexA', 'bexB', 'bexC', 'bexD')
+REGION_TWO = ('type_a', 'type_b', 'type_c', 'type_d', 'type_e', 'type_f')
+REGION_THREE = ('hcsA', 'hcsB')
+
+
 BlastResults = collections.namedtuple('BlastResults', BLAST_FORMAT)
+
+class Gene():
+
+    def __init__(self, name, region):
+        self.name = name
+        self.region = region
+
+        self.database_fp = None
+        self.blast_database_fp = None
+        self.blast_results = None
+        self.complete_hits = None
 
 
 def get_arguments():
@@ -60,18 +76,41 @@ def main():
     initialise_logging(args.log_level, args.log_fp)
     check_arguments(args)
 
+    # Get instances of Gene for all flanking genes (region I and III) and associate databases
+    # TODO: must standardise naming and aggregate genes by region in a more robust way. this
+    # could be done by compiling into a multi FASTA ~ region
+    genes = dict()
+    for region_genes, region in zip((REGION_ONE, REGION_THREE), ('one', 'two')):
+        for gene in region_genes:
+            genes[gene] = Gene(gene, region)
+
+    for database_fp in args.database_fps:
+        database_gene = database_fp.stem
+        if database_gene in REGION_TWO:
+            continue
+        try:
+            genes[database_gene].database_fp = database_fp
+        except KeyError:
+            logging.error('Can\'t match database %s to flanking gene', database_fp)
+            sys.exit(1)
+
     # Run
+    # Verbose for clarity
     with tempfile.TemporaryDirectory() as dh:
-        # Verbose for clarity
-        blast_database_fps = list()
-        for db_fp in args.database_fps:
-            blast_database_fps.append(create_blast_database(db_fp, dh))
+        # TODO: q parallelise, use asyncio
+        for gene in genes.values():
+            # Create blast databases
+            gene.blast_database_fp = create_blast_database(gene.database_fp, dh)
+            # Align flanking region genes to query
+            blast_stdout = blast_query(args.query_fp, gene.blast_database_fp)
+            gene.blast_results = parse_blast_stdout(blast_stdout)
 
-        blast_results = list()
-        for blast_db_fp in blast_database_fps:
-            blast_stdout = blast_query(args.query_fp, blast_db_fp)
-            blast_results.append(parse_blast_stdout(blast_stdout))
+        # TODO: get complete gene hits
+        # TODO: separate into regions
+        # TODO: catch loci which cannot be complete due to discontiguous sequences
+        # TODO: note missing flanking genes and attempt to locate incomplete matches
 
+        # TODO: QN: separate region II into single genes rather than aligning entire sequence
 
 def initialise_logging(log_level, log_file):
     log_handles = list()
@@ -91,6 +130,7 @@ def initialise_logging(log_level, log_file):
 
 
 def check_arguments(args):
+    # Files
     if args.log_fp:
         check_filepath_exists(args.log_fp.parent, 'Directory %s for log filepath does not exist')
     check_filepath_exists(args.database_dir, 'Database directory %s does not exist')
