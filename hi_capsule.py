@@ -60,6 +60,7 @@ class Locus():
         self.contigs = [contig]
         self.genes = {gene.sseqid: gene for gene in genes}
 
+        self.type_hits = list()
         self.broken_genes = list()
         self._is_complete = bool()
 
@@ -101,6 +102,12 @@ def get_arguments():
     # Options
     parser.add_argument('--gene_coverage', default=0.80, type=float,
             help='Minimum percentage coverage to consider a single gene complete. [default: 0.80]')
+    parser.add_argument('--gene_identity', default=0.75, type=float,
+            help='Minimum percentage identity to consider a single gene complete. [default: 0.75]')
+    parser.add_argument('--type_coverage', default=0.90, type=float,
+            help='Minimum percentage coverage to consider a locus type. [default: 0.90]')
+    parser.add_argument('--type_identity', default=0.90, type=float,
+            help='Minimum percentage identity to consider a locus type. [default: 0.90]')
     parser.add_argument('--debug', action='store_const', dest='log_level', const=logging.DEBUG,
             default=logging.WARNING, help='Print debug messages')
     parser.add_argument('--log_fp', type=pathlib.Path,
@@ -142,6 +149,7 @@ def main():
     # Run
     # Read in query sequence
     with args.query_fp.open('r') as fh:
+        # TODO: clearner way to do this?
         query_fasta = {desc.split(' ')[0]: seq for desc, seq in SimpleFastaParser(fh)}
 
     # Blast query against database and collect complete flanking gene hits
@@ -152,7 +160,7 @@ def main():
             blast_stdout = blast_query(args.query_fp, gene.blast_database_fp)
             gene.blast_results = parse_blast_stdout(blast_stdout)
             # Set hits as complete or otherwise
-            complete_hits, incomplete_hits = sort_hits(gene.blast_results, args.gene_coverage)
+            complete_hits, incomplete_hits = sort_flanking_hits(gene.blast_results, args.gene_coverage)
             gene.complete_hits = complete_hits
             gene.incomplete_hits = incomplete_hits
 
@@ -162,10 +170,24 @@ def main():
 
     # Blast inferred region II against references
     with tempfile.TemporaryDirectory() as dh:
-        # Write region II out for each loci
-        for locus_data in loci_data:
-            region_two_seq = get_region_two_sequence(locus_data, query_fasta)
-    sys.exit(0)
+        for i, locus_data in enumerate(loci_data, 1):
+            # Write region II
+            seq = get_region_two_sequence(locus_data, query_fasta)
+            seq_fp = pathlib.Path(dh, '%s.fasta' % i)
+            with seq_fp.open('w') as fh:
+                print('>', i, sep='', file=fh)
+                for line in [seq[i:i+80] for i in range(0, len(seq), 80)]:
+                    print(line, file=fh)
+
+            # Blast region II and get a filtered hit
+            for region in region_data.values():
+                region.blast_database_fp = create_blast_database(region.database_fp, dh)
+                blast_stdout = blast_query(seq_fp, region.blast_database_fp)
+                region.blast_results = parse_blast_stdout(blast_stdout)
+
+                type_hit = filter_type_hits(region.blast_results, args.type_coverage, args.type_identity)
+                if type_hit:
+                    locus_data.type_hits.append((region.name, type_hit))
 
     # Attempt to find broken genes for incomplete loci on the same contig
     for incomplete_locus in (l for l in loci_data if not l.is_complete):
@@ -272,11 +294,11 @@ def parse_blast_stdout(blast_results):
     return [BlastResults(*lts) for lts in line_token_gen if lts]
 
 
-def sort_hits(blast_results, coverage_minimum):
+def sort_flanking_hits(blast_results, coverage_minimum):
     complete_genes = list()
     incomplete_genes = list()
     for result in blast_results:
-        if int(result.length) / int(result.slen) > coverage_minimum:
+        if int(result.length) / int(result.slen) >= coverage_minimum:
             complete_genes.append(result)
         else:
             incomplete_genes.append(result)
@@ -418,6 +440,15 @@ def get_region_two_sequence(locus_data, query_fasta):
     else:
         bounds_lower, bounds_upper = sorted((hcsA_upper, bexD_lower))
     return query_fasta[locus_data.contigs[0]][bounds_lower:bounds_upper]
+
+
+def filter_type_hits(blast_results, coverage_minimum, identity_minimum):
+    for result in blast_results:
+        if int(result.length) / int(result.slen) < coverage_minimum:
+            continue
+        if float(result.pident) < identity_minimum:
+            continue
+        return result
 
 
 if __name__ == '__main__':
