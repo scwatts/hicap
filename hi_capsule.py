@@ -23,6 +23,7 @@ import collections
 import pathlib
 import logging
 import subprocess
+import statistics
 import sys
 import tempfile
 
@@ -47,13 +48,32 @@ class GeneData():
         self.blast_database_fp = pathlib.Path()
         self.blast_results = list()
         self.complete_hits = list()
+        self.incomplete_hits = list()
 
 
 class Locus():
 
     def __init__(self, contig, genes):
-        self.contig = contig
+        self.contigs = [contig]
         self.genes = genes
+
+        self.broken_genes = list()
+        self._is_complete = bool()
+
+    @property
+    def is_complete(self):
+        if self._is_complete is bool():
+            self._is_complete = ( len(self.genes) + len(self.broken_genes) ) == len(FLANK_ORDER)
+        return self._is_complete
+
+    @property
+    def discontiguous_sequence(self):
+        return len(self.contigs) > 1
+
+    @property
+    def missing_genes(self):
+        gene_name_gen = (g.sseqid for g in self.genes)
+        return set(gene_name_gen) ^ set(FLANK_ORDER)
 
 
 def get_arguments():
@@ -105,36 +125,52 @@ def main():
             sys.exit(1)
 
     # Run
-    # Verbose for clarity
     with tempfile.TemporaryDirectory() as dh:
+        # Blast query against database and collect complete flanking gene hits
         # TODO: q parallelise, use asyncio
         for gene in genes_data.values():
-            # Create blast databases
             gene.blast_database_fp = create_blast_database(gene.database_fp, dh)
-            # Align flanking region genes_data to query
             blast_stdout = blast_query(args.query_fp, gene.blast_database_fp)
             gene.blast_results = parse_blast_stdout(blast_stdout)
-            # Collect complete hits for flanking genes_data
-            gene.complete_hits = get_complete_hits(gene.blast_results, args.gene_coverage)
-
-        # Get and flanking genes and group by contig
-        genes_gen = (g for gene_data in genes_data.values() for g in gene_data.complete_hits)
-        contig_genes = dict()
-        for gene in genes_gen:
-            try:
-                contig_genes[gene.qseqid].append(gene)
-            except KeyError:
-                contig_genes[gene.qseqid] = [gene]
+            # Set hits as complete or otherwise
+            complete_hits, incomplete_hits = sort_hits(gene.blast_results, args.gene_coverage)
+            gene.complete_hits = complete_hits
+            gene.incomplete_hits = incomplete_hits
 
         # Find the best matching locus sequence for each
-        loci_data = dict()
-        for contig in contig_genes:
-            genes = sorted(contig_genes[contig], key=lambda k: int(k.qstart))
-            loci_data[contig] = [Locus(contig, genes[s:e]) for s, e in find_best_loci(genes)]
+        # TODO: CRIT: check for complete genes dropped here
+        loci_data = get_best_loci(genes_data)
 
-        # TODO: catch loci which cannot be complete due to discontiguous sequences
-        # TODO: note missing flanking genes_data and attempt to locate incomplete matches
+        # Attempt to find broken genes for incomplete loci on the same contig
+        for incomplete_locus in (l for l in loci_data if not l.is_complete):
+            for missing_gene in incomplete_locus.missing_genes:
+                broken_gene = find_broken_gene(genes_data[missing_gene].incomplete_hits, locus_data)
+                locus_data.broken_genes.append(broken_gene)
 
+        # Next try to find broken genes on different contigs
+        missing_gene_counts = dict()
+        for incomplete_locus in (l for l in loci_data if not l.is_complete):
+            for missing_gene in incomplete_locus.missing_genes:
+                try:
+                    missing_gene_counts[missing_gene] += 1
+                except KeyError:
+                    missing_gene_counts[missing_gene] = 1
+
+        broken_genes = dict()
+        for missing_gene, count in missing_gene_counts.items():
+            genes = find_broken_gene(genes_data[missing_gene].incomplete_hits)
+            broken_genes[missing_gene] = genes[count:]
+
+        # Under fortunate circumstances if we can only a single incomplete loci remaining, we can
+        # associate the broken genes with it
+        if len(l for l in loci_data if not l.is_complete) == 1:
+            for locus_data in loci_data:
+                if locus_data.is_complete:
+                    locus_data.broken_genes = [g for g in broken_genes.values()]
+
+        # TODO: blast region II
+
+        # TODO: software version checking
         # TODO: QN: separate region II into single genes rather than aligning entire sequence
 
 def initialise_logging(log_level, log_file):
@@ -210,19 +246,40 @@ def parse_blast_stdout(blast_results):
     return [BlastResults(*lts) for lts in line_token_gen if lts]
 
 
-def get_complete_hits(blast_results, coverage_minimum):
+def sort_hits(blast_results, coverage_minimum):
     complete_genes = list()
+    incomplete_genes = list()
     for result in blast_results:
         if int(result.length) / int(result.slen) > coverage_minimum:
             complete_genes.append(result)
-    return complete_genes
+        else:
+            incomplete_genes.append(result)
+    return complete_genes, incomplete_genes
 
 
-def find_best_loci(genes):
+def get_best_loci(genes_data):
+    # Pull complete flanking genes and group by contig
+    genes_gen = (g for gene_data in genes_data.values() for g in gene_data.complete_hits)
+    contig_genes = dict()
+    for gene in genes_gen:
+        try:
+            contig_genes[gene.qseqid].append(gene)
+        except KeyError:
+            contig_genes[gene.qseqid] = [gene]
+
+    loci_data = list()
+    for contig in contig_genes:
+        genes = sorted(contig_genes[contig], key=lambda k: int(k.qstart))
+        loci = [Locus(contig, genes[s:e]) for s, e in find_loci_boundaries(genes)]
+        loci_data.extend(loci)
+    return loci_data
+
+
+def find_loci_boundaries(genes):
     genes_names = [g.sseqid for g in genes]
     forward_alignments = get_ordered_locus_sequences(genes_names, direction='forward')
     reverse_alignments = get_ordered_locus_sequences(genes_names, direction='reverse')
-    alignments = select_best_locus_sequences(forward_alignments + reverse_alignments)
+    alignments = select_locus_sequences(forward_alignments + reverse_alignments)
 
     # Convert ranges to indices
     return [(min(a), max(a) + 1) for a in alignments]
@@ -256,7 +313,7 @@ def get_ordered_locus_sequences(genes, *, direction):
     return alignments
 
 
-def select_best_locus_sequences(locus_sequences):
+def select_locus_sequences(locus_sequences):
     # Iteratively select best alignments
     alignment_score_groups = dict()
     for alignment in locus_sequences:
@@ -275,6 +332,47 @@ def select_best_locus_sequences(locus_sequences):
             if not any(p in a for a in best_alignments for p in alignment):
                 best_alignments.append(alignment)
     return best_alignments
+
+
+def find_broken_gene(gene_hits, locus_data=None):
+    min_length = 50
+    if same_contig:
+        hit_gen = (h for h in gene_hits if h.qseqid in locus_data.contigs)
+    else:
+        hit_gen = (h for h in gene_hits)
+
+    broken_genes = list()
+    for gene_hit in hit_gen:
+        if broken_hit_identity(gene_hit, locus_data):
+            continue
+        if broken_hit_distance(gene_hit, locus_data):
+            continue
+        # Remove hit from gene_hits
+        gene_hits.remove(gene_hit)
+        if same_contig:
+            return gene_hit
+        else:
+            broken_genes.append(gene_hit)
+    return broken_genes
+
+
+def broken_hit_identity(gene_hit, locus_data):
+    # TODO: expose to command line
+    max_identity_diff = 10
+    average_identity = statistics.mean(float(h.pident) for h in locus_data.genes)
+    lower_identity = average_identity - max_identity_diff
+    upper_identity = average_identity + max_identity_diff
+    return float(gene_hit.pident) < lower_identity or float(gene_hit.pident) > upper_identity
+
+
+def broken_hit_distance(gene_hit, locus_data):
+    # TODO: expose to command line
+    max_dist = 5000
+    gene_positions = [int(p) for h in locus_data.genes for p in (h.qstart, h.qend)]
+    lower_position = max(gene_positions) - max_dist
+    upper_position = max(gene_positions) + max_dist
+    return int(gene_hit.qstart) < lower_position or int(gene_hit.qstart) > upper_position
+
 
 
 if __name__ == '__main__':
