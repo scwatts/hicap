@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
 
+# TODO: examine corner cases (GCA_002987225; bexD on a different contig)
 # TODO: refactor main function into discrete units
 # TODO: many more logging messages
 # TODO: many more unit tests
