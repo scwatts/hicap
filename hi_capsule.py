@@ -18,6 +18,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
 
+# TODO: refactor main function into discrete units
+# TODO: many more logging messages
+# TODO: many more unit tests
+# TODO: software version checking
+# TODO: place all region II into a single flat database
+# TODO: QN: separate region II into single genes rather than aligning entire sequence
+
+
 import argparse
 import collections
 import pathlib
@@ -76,7 +84,7 @@ class Locus():
 
     @property
     def missing_genes(self):
-        gene_name_gen = (g.sseqid for g in self.genes)
+        gene_name_gen = (g.sseqid for g in list(self.genes.values()) + self.broken_genes)
         return set(gene_name_gen) ^ set(FLANK_ORDER)
 
 
@@ -149,7 +157,7 @@ def main():
     # Run
     # Read in query sequence
     with args.query_fp.open('r') as fh:
-        # TODO: clearner way to do this?
+        # TODO: cleaner way to do this?
         query_fasta = {desc.split(' ')[0]: seq for desc, seq in SimpleFastaParser(fh)}
 
     # Blast query against database and collect complete flanking gene hits
@@ -211,14 +219,27 @@ def main():
 
     # Under fortunate circumstances if we can only a single incomplete loci remaining, we can
     # associate the broken genes with it
-    if len(l for l in loci_data if not l.is_complete) == 1:
+    if len([l for l in loci_data if not l.is_complete]) == 1:
         for locus_data in loci_data:
             if locus_data.is_complete:
                 locus_data.broken_genes = [g for g in broken_genes.values()]
 
-    # TODO: software version checking
-    # TODO: place all region II into a single flat database
-    # TODO: QN: separate region II into single genes rather than aligning entire sequence
+    # Results
+    # TODO: clean this up
+    # TODO: print much more info, decide on best format
+    # TODO: write results to file. sequences? summary? annotation? png?
+    for locus_data in loci_data:
+        print(*locus_data.contigs, sep=',', end ='\t')
+        print(*locus_data.genes, sep=',', end ='\t')
+        print(*(g.sseqid for g in locus_data.broken_genes), sep=',', end ='\t')
+        print(*(g.sseqid for g in locus_data.missing_genes), sep=',', end ='\t')
+        print(*(r for r, h in locus_data.type_hits), sep=',', end ='\t')
+
+        # This awful print out will go. Staying for now
+        genes = [g for g in list(locus_data.genes.values()) + locus_data.broken_genes]
+        positions = [int(g.qstart) for g in genes] + [int(g.qend) for g in genes]
+        print(min(positions), max(positions), sep='\t')
+
 
 
 def initialise_logging(log_level, log_file):
@@ -384,7 +405,7 @@ def select_locus_sequences(locus_sequences):
 
 def find_broken_gene(gene_hits, locus_data=None):
     min_length = 50
-    if same_contig:
+    if locus_data is not None:
         hit_gen = (h for h in gene_hits if h.qseqid in locus_data.contigs)
     else:
         hit_gen = (h for h in gene_hits)
@@ -397,7 +418,7 @@ def find_broken_gene(gene_hits, locus_data=None):
             continue
         # Remove hit from gene_hits
         gene_hits.remove(gene_hit)
-        if same_contig:
+        if locus_data is not None:
             return gene_hit
         else:
             broken_genes.append(gene_hit)
@@ -407,7 +428,7 @@ def find_broken_gene(gene_hits, locus_data=None):
 def broken_hit_identity(gene_hit, locus_data):
     # TODO: expose to command line
     max_identity_diff = 10
-    average_identity = statistics.mean(float(h.pident) for h in locus_data.genes)
+    average_identity = statistics.mean(float(h.pident) for h in locus_data.genes.values())
     lower_identity = average_identity - max_identity_diff
     upper_identity = average_identity + max_identity_diff
     return float(gene_hit.pident) < lower_identity or float(gene_hit.pident) > upper_identity
@@ -416,7 +437,7 @@ def broken_hit_identity(gene_hit, locus_data):
 def broken_hit_distance(gene_hit, locus_data):
     # TODO: expose to command line
     max_dist = 5000
-    gene_positions = [int(p) for h in locus_data.genes for p in (h.qstart, h.qend)]
+    gene_positions = [int(p) for h in locus_data.genes.values() for p in (h.qstart, h.qend)]
     lower_position = max(gene_positions) - max_dist
     upper_position = max(gene_positions) + max_dist
     return int(gene_hit.qstart) < lower_position or int(gene_hit.qstart) > upper_position
