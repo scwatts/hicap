@@ -58,6 +58,8 @@ def get_arguments():
             help='Input FASTA query')
 
     # Options
+    parser.add_argument('--gene_coverage', default=0.80, type=float,
+            help='Minimum percentage coverage to consider a single gene complete. [default: 0.80]')
     parser.add_argument('--debug', action='store_const', dest='log_level', const=logging.DEBUG,
             default=logging.WARNING, help='Print debug messages')
     parser.add_argument('--log_fp', type=pathlib.Path,
@@ -104,8 +106,9 @@ def main():
             # Align flanking region genes to query
             blast_stdout = blast_query(args.query_fp, gene.blast_database_fp)
             gene.blast_results = parse_blast_stdout(blast_stdout)
+            # Collect complete hits for flanking genes
+            gene.complete_hits = get_complete_hits(gene.blast_results, args.gene_coverage)
 
-        # TODO: get complete gene hits
         # TODO: separate into regions
         # TODO: catch loci which cannot be complete due to discontiguous sequences
         # TODO: note missing flanking genes and attempt to locate incomplete matches
@@ -138,6 +141,14 @@ def check_arguments(args):
     if not args.database_fps:
         msg = 'Could not find any database files (.fasta extension) in %s.'
         logging.error(msg, args.database_dir)
+        sys.exit(1)
+
+    # Parameters
+    if args.gene_coverage <= 0:
+        logging.error('--gene_coverage must be greater than zero')
+        sys.exit(1)
+    if args.gene_coverage > 1:
+        logging.error('--gene_coverage cannot be greater than 1.0')
         sys.exit(1)
 
 
@@ -175,6 +186,14 @@ def blast_query(query_fp, blast_db_fp):
 def parse_blast_stdout(blast_results):
     line_token_gen = (line.split() for line in blast_results.split('\n'))
     return [BlastResults(*lts) for lts in line_token_gen if lts]
+
+
+def get_complete_hits(blast_results, coverage_minimum):
+    complete_genes = list()
+    for result in blast_results:
+        if int(result.length) / int(result.slen) > coverage_minimum:
+            complete_genes.append(result)
+    return complete_genes
 
 
 if __name__ == '__main__':
