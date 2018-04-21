@@ -1,6 +1,6 @@
 language: python
 python: 3.6
 install: pip3 install .
-before_script: pip3 install codecov
+before_script: pip3 install codecov biopython
 script: coverage run -m unittest
 after_success: codecov
