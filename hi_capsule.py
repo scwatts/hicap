@@ -32,20 +32,28 @@ BLAST_FORMAT = ['qseqid', 'sseqid', 'qlen', 'slen', 'qstart', 'qend', 'sstart', 
 REGION_ONE = ('bexA', 'bexB', 'bexC', 'bexD')
 REGION_TWO = ('type_a', 'type_b', 'type_c', 'type_d', 'type_e', 'type_f')
 REGION_THREE = ('hcsA', 'hcsB')
+FLANK_ORDER = REGION_ONE + REGION_THREE
 
 
 BlastResults = collections.namedtuple('BlastResults', BLAST_FORMAT)
 
-class Gene():
+class GeneData():
 
     def __init__(self, name, region):
         self.name = name
         self.region = region
 
-        self.database_fp = None
-        self.blast_database_fp = None
-        self.blast_results = None
-        self.complete_hits = None
+        self.database_fp = pathlib.Path()
+        self.blast_database_fp = pathlib.Path()
+        self.blast_results = list()
+        self.complete_hits = list()
+
+
+class Locus():
+
+    def __init__(self, contig, genes):
+        self.contig = contig
+        self.genes = genes
 
 
 def get_arguments():
@@ -81,17 +89,17 @@ def main():
     # Get instances of Gene for all flanking genes (region I and III) and associate databases
     # TODO: must standardise naming and aggregate genes by region in a more robust way. this
     # could be done by compiling into a multi FASTA ~ region
-    genes = dict()
-    for region_genes, region in zip((REGION_ONE, REGION_THREE), ('one', 'two')):
-        for gene in region_genes:
-            genes[gene] = Gene(gene, region)
+    genes_data = dict()
+    for region_genes_data, region in zip((REGION_ONE, REGION_THREE), ('one', 'two')):
+        for gene in region_genes_data:
+            genes_data[gene] = GeneData(gene, region)
 
     for database_fp in args.database_fps:
         database_gene = database_fp.stem
         if database_gene in REGION_TWO:
             continue
         try:
-            genes[database_gene].database_fp = database_fp
+            genes_data[database_gene].database_fp = database_fp
         except KeyError:
             logging.error('Can\'t match database %s to flanking gene', database_fp)
             sys.exit(1)
@@ -100,18 +108,32 @@ def main():
     # Verbose for clarity
     with tempfile.TemporaryDirectory() as dh:
         # TODO: q parallelise, use asyncio
-        for gene in genes.values():
+        for gene in genes_data.values():
             # Create blast databases
             gene.blast_database_fp = create_blast_database(gene.database_fp, dh)
-            # Align flanking region genes to query
+            # Align flanking region genes_data to query
             blast_stdout = blast_query(args.query_fp, gene.blast_database_fp)
             gene.blast_results = parse_blast_stdout(blast_stdout)
-            # Collect complete hits for flanking genes
+            # Collect complete hits for flanking genes_data
             gene.complete_hits = get_complete_hits(gene.blast_results, args.gene_coverage)
 
-        # TODO: separate into regions
+        # Get and flanking genes and group by contig
+        genes_gen = (g for gene_data in genes_data.values() for g in gene_data.complete_hits)
+        contig_genes = dict()
+        for gene in genes_gen:
+            try:
+                contig_genes[gene.qseqid].append(gene)
+            except KeyError:
+                contig_genes[gene.qseqid] = [gene]
+
+        # Find the best matching locus sequence for each
+        loci_data = dict()
+        for contig in contig_genes:
+            genes = sorted(contig_genes[contig], key=lambda k: int(k.qstart))
+            loci_data[contig] = [Locus(contig, genes[s:e]) for s, e in find_best_loci(genes)]
+
         # TODO: catch loci which cannot be complete due to discontiguous sequences
-        # TODO: note missing flanking genes and attempt to locate incomplete matches
+        # TODO: note missing flanking genes_data and attempt to locate incomplete matches
 
         # TODO: QN: separate region II into single genes rather than aligning entire sequence
 
@@ -194,6 +216,65 @@ def get_complete_hits(blast_results, coverage_minimum):
         if int(result.length) / int(result.slen) > coverage_minimum:
             complete_genes.append(result)
     return complete_genes
+
+
+def find_best_loci(genes):
+    genes_names = [g.sseqid for g in genes]
+    forward_alignments = get_ordered_locus_sequences(genes_names, direction='forward')
+    reverse_alignments = get_ordered_locus_sequences(genes_names, direction='reverse')
+    alignments = select_best_locus_sequences(forward_alignments + reverse_alignments)
+
+    # Convert ranges to indices
+    return [(min(a), max(a) + 1) for a in alignments]
+
+
+def get_ordered_locus_sequences(genes, *, direction):
+    if direction == 'forward':
+        ordered = FLANK_ORDER
+    elif direction == 'reverse':
+        ordered = FLANK_ORDER[::-1]
+    else:
+        logging.error('Direction must be either forward or reverse')
+        sys.exit(1)
+    alignments = list()
+    for qi in range(len(genes)):
+        # Find 'seed'
+        for si, sgene in enumerate(ordered):
+            if genes[qi] == sgene:
+                break
+        else:
+            alignments.append(range(0, 0))
+            continue
+        # Extend until a mismatch
+        align_pairs = zip(genes[qi:], ordered[si:])
+        for j, (qgene, sgene) in enumerate(align_pairs):
+            if qgene != sgene:
+                alignments.append(range(qi, qi + j))
+                break
+        else:
+            alignments.append(range(qi, qi + j + 1))
+    return alignments
+
+
+def select_best_locus_sequences(locus_sequences):
+    # Iteratively select best alignments
+    alignment_score_groups = dict()
+    for alignment in locus_sequences:
+        try:
+            alignment_score_groups[len(alignment)].append(alignment)
+        except KeyError:
+            alignment_score_groups[len(alignment)] = [alignment]
+    best_alignments = list()
+    for score_group in sorted(alignment_score_groups, reverse=True):
+        # This is not efficient
+        for alignment in alignment_score_groups[score_group]:
+            # Exclude alignments shorter than 2 genes
+            if len(alignment) < 3:
+                continue
+            # Only record alignment if there is no overlap with previously added alignment
+            if not any(p in a for a in best_alignments for p in alignment):
+                best_alignments.append(alignment)
+    return best_alignments
 
 
 if __name__ == '__main__':
