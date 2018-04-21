@@ -28,6 +28,9 @@ import sys
 import tempfile
 
 
+from Bio.SeqIO.FastaIO import SimpleFastaParser
+
+
 BLAST_FORMAT = ['qseqid', 'sseqid', 'qlen', 'slen', 'qstart', 'qend', 'sstart', 'send',
                 'length', 'evalue', 'bitscore', 'pident', 'nident', 'mismatch', 'gaps']
 REGION_ONE = ('bexA', 'bexB', 'bexC', 'bexD')
@@ -55,7 +58,7 @@ class Locus():
 
     def __init__(self, contig, genes):
         self.contigs = [contig]
-        self.genes = genes
+        self.genes = {gene.sseqid: gene for gene in genes}
 
         self.broken_genes = list()
         self._is_complete = bool()
@@ -74,6 +77,16 @@ class Locus():
     def missing_genes(self):
         gene_name_gen = (g.sseqid for g in self.genes)
         return set(gene_name_gen) ^ set(FLANK_ORDER)
+
+
+class RegionData():
+
+    def __init__(self, name, database_fp):
+        self.name = name
+        self.database_fp = database_fp
+
+        self.blast_database_fp = pathlib.Path()
+        self.blast_results = list()
 
 
 def get_arguments():
@@ -106,28 +119,34 @@ def main():
     initialise_logging(args.log_level, args.log_fp)
     check_arguments(args)
 
-    # Get instances of Gene for all flanking genes (region I and III) and associate databases
+    # Associate databases with appropriate class and region
     # TODO: must standardise naming and aggregate genes by region in a more robust way. this
     # could be done by compiling into a multi FASTA ~ region
     genes_data = dict()
+    region_data = dict()
     for region_genes_data, region in zip((REGION_ONE, REGION_THREE), ('one', 'two')):
         for gene in region_genes_data:
             genes_data[gene] = GeneData(gene, region)
 
     for database_fp in args.database_fps:
-        database_gene = database_fp.stem
-        if database_gene in REGION_TWO:
+        database_name = database_fp.stem
+        if database_name in REGION_TWO:
+            region_data[database_name] = RegionData(database_name, database_fp)
             continue
         try:
-            genes_data[database_gene].database_fp = database_fp
+            genes_data[database_name].database_fp = database_fp
         except KeyError:
             logging.error('Can\'t match database %s to flanking gene', database_fp)
             sys.exit(1)
 
     # Run
+    # Read in query sequence
+    with args.query_fp.open('r') as fh:
+        query_fasta = {desc.split(' ')[0]: seq for desc, seq in SimpleFastaParser(fh)}
+
+    # Blast query against database and collect complete flanking gene hits
+    # TODO: q parallelise, use asyncio
     with tempfile.TemporaryDirectory() as dh:
-        # Blast query against database and collect complete flanking gene hits
-        # TODO: q parallelise, use asyncio
         for gene in genes_data.values():
             gene.blast_database_fp = create_blast_database(gene.database_fp, dh)
             blast_stdout = blast_query(args.query_fp, gene.blast_database_fp)
@@ -137,41 +156,48 @@ def main():
             gene.complete_hits = complete_hits
             gene.incomplete_hits = incomplete_hits
 
-        # Find the best matching locus sequence for each
-        # TODO: CRIT: check for complete genes dropped here
-        loci_data = get_best_loci(genes_data)
+    # Find the best matching locus sequence for each
+    # TODO: CRIT: check for complete genes dropped here
+    loci_data = get_best_loci(genes_data)
 
-        # Attempt to find broken genes for incomplete loci on the same contig
-        for incomplete_locus in (l for l in loci_data if not l.is_complete):
-            for missing_gene in incomplete_locus.missing_genes:
-                broken_gene = find_broken_gene(genes_data[missing_gene].incomplete_hits, locus_data)
-                locus_data.broken_genes.append(broken_gene)
+    # Blast inferred region II against references
+    with tempfile.TemporaryDirectory() as dh:
+        # Write region II out for each loci
+        for locus_data in loci_data:
+            region_two_seq = get_region_two_sequence(locus_data, query_fasta)
+    sys.exit(0)
 
-        # Next try to find broken genes on different contigs
-        missing_gene_counts = dict()
-        for incomplete_locus in (l for l in loci_data if not l.is_complete):
-            for missing_gene in incomplete_locus.missing_genes:
-                try:
-                    missing_gene_counts[missing_gene] += 1
-                except KeyError:
-                    missing_gene_counts[missing_gene] = 1
+    # Attempt to find broken genes for incomplete loci on the same contig
+    for incomplete_locus in (l for l in loci_data if not l.is_complete):
+        for missing_gene in incomplete_locus.missing_genes:
+            broken_gene = find_broken_gene(genes_data[missing_gene].incomplete_hits, locus_data)
+            locus_data.broken_genes.append(broken_gene)
 
-        broken_genes = dict()
-        for missing_gene, count in missing_gene_counts.items():
-            genes = find_broken_gene(genes_data[missing_gene].incomplete_hits)
-            broken_genes[missing_gene] = genes[count:]
+    # Next try to find broken genes on different contigs
+    missing_gene_counts = dict()
+    for incomplete_locus in (l for l in loci_data if not l.is_complete):
+        for missing_gene in incomplete_locus.missing_genes:
+            try:
+                missing_gene_counts[missing_gene] += 1
+            except KeyError:
+                missing_gene_counts[missing_gene] = 1
 
-        # Under fortunate circumstances if we can only a single incomplete loci remaining, we can
-        # associate the broken genes with it
-        if len(l for l in loci_data if not l.is_complete) == 1:
-            for locus_data in loci_data:
-                if locus_data.is_complete:
-                    locus_data.broken_genes = [g for g in broken_genes.values()]
+    broken_genes = dict()
+    for missing_gene, count in missing_gene_counts.items():
+        genes = find_broken_gene(genes_data[missing_gene].incomplete_hits)
+        broken_genes[missing_gene] = genes[count:]
 
-        # TODO: blast region II
+    # Under fortunate circumstances if we can only a single incomplete loci remaining, we can
+    # associate the broken genes with it
+    if len(l for l in loci_data if not l.is_complete) == 1:
+        for locus_data in loci_data:
+            if locus_data.is_complete:
+                locus_data.broken_genes = [g for g in broken_genes.values()]
 
-        # TODO: software version checking
-        # TODO: QN: separate region II into single genes rather than aligning entire sequence
+    # TODO: software version checking
+    # TODO: place all region II into a single flat database
+    # TODO: QN: separate region II into single genes rather than aligning entire sequence
+
 
 def initialise_logging(log_level, log_file):
     log_handles = list()
@@ -373,6 +399,25 @@ def broken_hit_distance(gene_hit, locus_data):
     upper_position = max(gene_positions) + max_dist
     return int(gene_hit.qstart) < lower_position or int(gene_hit.qstart) > upper_position
 
+
+def get_region_two_sequence(locus_data, query_fasta):
+    # TODO: report position of locus
+    if 'hcsA' not in locus_data.genes or 'bexD' not in locus_data.genes:
+        logging.warning('Can\'t extract region II for locus')
+        return
+
+    # TODO: sort is likely not required, need to think through this more
+    bexD = locus_data.genes['bexD']
+    hcsA = locus_data.genes['hcsA']
+    bexD_lower, bexD_upper = sorted((int(bexD.qstart), int(bexD.qend)))
+    hcsA_lower, hcsA_upper = sorted((int(hcsA.qstart), int(hcsA.qend)))
+
+    # TODO: sorted here is absolutely required
+    if abs(bexD_upper - hcsA_lower) < abs(hcsA_upper - bexD_lower):
+        bounds_lower, bounds_upper = sorted((bexD_upper, hcsA_lower))
+    else:
+        bounds_lower, bounds_upper = sorted((hcsA_upper, bexD_lower))
+    return query_fasta[locus_data.contigs[0]][bounds_lower:bounds_upper]
 
 
 if __name__ == '__main__':
