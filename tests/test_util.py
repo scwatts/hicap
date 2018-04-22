@@ -26,7 +26,7 @@ from . import tests_directory
 import hi_capsule
 
 
-class TestExecuteFunction(unittest.TestCase):
+class ExecuteTestCase(unittest.TestCase):
 
     def test_execute_command_1(self):
         result = hi_capsule.execute_command('echo -n test')
@@ -35,12 +35,17 @@ class TestExecuteFunction(unittest.TestCase):
         self.assertEqual(result.stderr, '')
 
     def test_execute_command_2(self):
+        result = hi_capsule.execute_command('invalid_command', check=False)
+        self.assertEqual(result.returncode, 127)
+        self.assertEqual(result.stdout, '')
+
+    def test_execute_command_3(self):
         logging.getLogger().setLevel(51)
         with self.assertRaises(SystemExit):
             hi_capsule.execute_command('invalid_command')
 
 
-class TestFastaParser(unittest.TestCase):
+class FastaParserTestCase(unittest.TestCase):
 
     def test_read_query_fasta_1(self):
         input_fp = pathlib.Path(tests_directory, 'data/good.fasta')
