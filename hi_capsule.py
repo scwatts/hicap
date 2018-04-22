@@ -118,7 +118,7 @@ def get_arguments():
     parser.add_argument('--type_identity', default=0.90, type=float,
             help='Minimum percentage identity to consider a locus type. [default: 0.90]')
     parser.add_argument('--debug', action='store_const', dest='log_level', const=logging.DEBUG,
-            default=logging.WARNING, help='Print debug messages')
+            default=logging.INFO, help='Print debug messages')
     parser.add_argument('--log_fp', type=pathlib.Path,
             help='Record logging messages to file')
 
@@ -134,7 +134,18 @@ def main():
     args = get_arguments()
     initialise_logging(args.log_level, args.log_fp)
     check_arguments(args)
+    genes_data, region_data = initialise_database(args.database_fps)
 
+    # Run
+    search_flanking_genes(genes_data, args.query_fp, args.gene_coverage)
+    # TODO: CRIT: check for complete genes dropped here
+    loci_data = get_best_loci(genes_data)
+    type_region_two(loci_data, region_data, args.query_fp, args.type_coverage, args.type_identity)
+    broken_genes = find_broken_genes(loci_data, genes_data)
+    write_results(loci_data, broken_genes)
+
+
+def initialise_database(database_fps):
     # Associate databases with appropriate class and region
     # TODO: must standardise naming and aggregate genes by region in a more robust way. this
     # could be done by compiling into a multi FASTA ~ region
@@ -144,7 +155,7 @@ def main():
         for gene in region_genes_data:
             genes_data[gene] = GeneData(gene, region)
 
-    for database_fp in args.database_fps:
+    for database_fp in database_fps:
         database_name = database_fp.stem
         if database_name in REGION_TWO:
             region_data[database_name] = RegionData(database_name, database_fp)
@@ -154,30 +165,35 @@ def main():
         except KeyError:
             logging.error('Can\'t match database %s to flanking gene', database_fp)
             sys.exit(1)
+    return genes_data, region_data
 
-    # Run
-    # Read in query sequence
-    with args.query_fp.open('r') as fh:
+
+def read_query_fasta(query_fp):
+    logging.info('Collecting query nucleotide sequence')
+    with query_fp.open('r') as fh:
         # TODO: cleaner way to do this?
-        query_fasta = {desc.split(' ')[0]: seq for desc, seq in SimpleFastaParser(fh)}
+        return {desc.split(' ')[0]: seq for desc, seq in SimpleFastaParser(fh)}
 
+
+def search_flanking_genes(genes_data, query_fp, gene_coverage):
     # Blast query against database and collect complete flanking gene hits
     # TODO: q parallelise, use asyncio
+    logging.info('Searching for flanking genes')
     with tempfile.TemporaryDirectory() as dh:
         for gene in genes_data.values():
             gene.blast_database_fp = create_blast_database(gene.database_fp, dh)
-            blast_stdout = blast_query(args.query_fp, gene.blast_database_fp)
+            blast_stdout = blast_query(query_fp, gene.blast_database_fp)
             gene.blast_results = parse_blast_stdout(blast_stdout)
             # Set hits as complete or otherwise
-            complete_hits, incomplete_hits = sort_flanking_hits(gene.blast_results, args.gene_coverage)
+            complete_hits, incomplete_hits = sort_flanking_hits(gene.blast_results, gene_coverage)
             gene.complete_hits = complete_hits
             gene.incomplete_hits = incomplete_hits
 
-    # Find the best matching locus sequence for each
-    # TODO: CRIT: check for complete genes dropped here
-    loci_data = get_best_loci(genes_data)
 
+def type_region_two(loci_data, region_data, query_fp, type_coverage, type_identity):
     # Blast inferred region II against references
+    logging.info('Extracting region II sequence for typing')
+    query_fasta = read_query_fasta(query_fp)
     with tempfile.TemporaryDirectory() as dh:
         for i, locus_data in enumerate(loci_data, 1):
             # Write region II
@@ -194,17 +210,21 @@ def main():
                 blast_stdout = blast_query(seq_fp, region.blast_database_fp)
                 region.blast_results = parse_blast_stdout(blast_stdout)
 
-                type_hit = filter_type_hits(region.blast_results, args.type_coverage, args.type_identity)
+                type_hit = filter_type_hits(region.blast_results, type_coverage, type_identity)
                 if type_hit:
                     locus_data.type_hits.append((region.name, type_hit))
 
+
+def find_broken_genes(loci_data, genes_data):
     # Attempt to find broken genes for incomplete loci on the same contig
+    logging.info('Searching for broken genes near existing loci')
     for incomplete_locus in (l for l in loci_data if not l.is_complete):
         for missing_gene in incomplete_locus.missing_genes:
-            broken_gene = find_broken_gene(genes_data[missing_gene].incomplete_hits, locus_data)
-            locus_data.broken_genes.append(broken_gene)
+            broken_gene = find_broken_gene(genes_data[missing_gene].incomplete_hits, incomplete_locus)
+            incomplete_locus.broken_genes.append(broken_gene)
 
     # Next try to find broken genes on different contigs
+    logging.info('Collecting remaining broken genes from anywhere possible')
     missing_gene_counts = dict()
     for incomplete_locus in (l for l in loci_data if not l.is_complete):
         for missing_gene in incomplete_locus.missing_genes:
@@ -221,14 +241,20 @@ def main():
     # Under fortunate circumstances if we can only a single incomplete loci remaining, we can
     # associate the broken genes with it
     if len([l for l in loci_data if not l.is_complete]) == 1:
+        logging.info('Associating all missing genes with specific loci')
         for locus_data in loci_data:
             if locus_data.is_complete:
                 locus_data.broken_genes = [g for g in broken_genes.values()]
+        return
+    else:
+        return broken_genes
 
-    # Results
+
+def write_results(loci_data, broken_genes):
     # TODO: clean this up
     # TODO: print much more info, decide on best format
     # TODO: write results to file. sequences? summary? annotation? png?
+    logging.info('Writing results')
     for locus_data in loci_data:
         print(*locus_data.contigs, sep=',', end ='\t')
         print(*locus_data.genes, sep=',', end ='\t')
@@ -240,7 +266,6 @@ def main():
         genes = [g for g in list(locus_data.genes.values()) + locus_data.broken_genes]
         positions = [int(g.qstart) for g in genes] + [int(g.qend) for g in genes]
         print(min(positions), max(positions), sep='\t')
-
 
 
 def initialise_logging(log_level, log_file):
@@ -299,6 +324,7 @@ def execute_command(command):
 
 
 def create_blast_database(input_fp, output_dir):
+    logging.debug('Create BLAST database for %s', input_fp)
     output_fp = pathlib.Path(output_dir, input_fp.name)
     command = 'makeblastdb -in %s -out %s -dbtype nucl' % (input_fp, output_fp)
     execute_command(command)
@@ -306,12 +332,14 @@ def create_blast_database(input_fp, output_dir):
 
 
 def blast_query(query_fp, blast_db_fp):
+    logging.debug('Aligning %s using BLAST to sequences in %s', query_fp, blast_db_fp)
     command = 'blastn -task blastn -db %s -query %s -outfmt "6 %s"'
     result = execute_command(command % (blast_db_fp, query_fp, ' '.join(BLAST_FORMAT)))
     return result.stdout
 
 
 def parse_blast_stdout(blast_results):
+    logging.debug('Parsing %s BLAST results', len(blast_results))
     line_token_gen = (line.split() for line in blast_results.split('\n'))
     return [BlastResults(*lts) for lts in line_token_gen if lts]
 
@@ -324,11 +352,13 @@ def sort_flanking_hits(blast_results, coverage_minimum):
             complete_genes.append(result)
         else:
             incomplete_genes.append(result)
+    logging.info('Found %s complete %s genes', len(complete_genes), complete_genes[0].sseqid)
     return complete_genes, incomplete_genes
 
 
 def get_best_loci(genes_data):
     # Pull complete flanking genes and group by contig
+    logging.info('Finding best match for loci')
     genes_gen = (g for gene_data in genes_data.values() for g in gene_data.complete_hits)
     contig_genes = dict()
     for gene in genes_gen:
@@ -337,11 +367,16 @@ def get_best_loci(genes_data):
         except KeyError:
             contig_genes[gene.qseqid] = [gene]
 
+    logging.info('Region I and III genes found on %s contig(s)', len(contig_genes))
+
     loci_data = list()
     for contig in contig_genes:
         genes = sorted(contig_genes[contig], key=lambda k: int(k.qstart))
-        loci = [Locus(contig, genes[s:e]) for s, e in find_loci_boundaries(genes)]
-        loci_data.extend(loci)
+        logging.info('Loci structure on contig %s: %s', contig, ' '.join(g.sseqid for g in genes))
+        for (start, end) in find_loci_boundaries(genes):
+            logging.debug('Locus boundary found at %s %s on %s', start, end, contig)
+            logging.debug('Locus contains %s', ' '.join(g.sseqid for g in genes[start:end]))
+            loci_data.append(Locus(contig, genes[start:end]))
     return loci_data
 
 
