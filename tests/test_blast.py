@@ -58,6 +58,8 @@ class QueryDatabaseTestCase(unittest.TestCase):
         database_fp = pathlib.Path(tests_directory, 'data/type_a.fasta')
         cls.blast_db_fp = hi_capsule.create_blast_database(database_fp, tests_directory)
         cls.blast_db_ext = ('nhr', 'nin', 'nsq')
+        hi_capsule.BLAST_FORMAT = ['qseqid', 'sseqid', 'qlen', 'slen', 'qstart', 'qend', 'sstart',
+                                   'send', 'length', 'mismatch', 'gaps']
 
     @classmethod
     def tearDownClass(cls):
@@ -66,8 +68,8 @@ class QueryDatabaseTestCase(unittest.TestCase):
             blast_db_fp_part.unlink()
 
     def test_query_database_1(self):
-        first_hit = 'Z37516\tZ37516\t5882\t5882\t2161\t5882\t2161\t5882\t3722\t0.0\t6713\t100.000\t3722\t0\t0'
-        last_hit = 'Z37516\tZ37516\t5882\t5882\t2965\t2976\t5696\t5685\t12\t4.3\t22.9\t100.000\t12\t0\t0'
+        first_hit = 'Z37516\tZ37516\t5882\t5882\t2161\t5882\t2161\t5882\t3722\t0\t0'
+        last_hit = 'Z37516\tZ37516\t5882\t5882\t2965\t2976\t5696\t5685\t12\t0\t0'
         query_fp = pathlib.Path(tests_directory, 'data/type_a_variant.fasta')
         blast_stdout = hi_capsule.blast_query(query_fp, self.blast_db_fp)
         hits = [l for l in blast_stdout.rstrip().split('\n')]
