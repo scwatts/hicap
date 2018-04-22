@@ -5,7 +5,7 @@
 
 Identify *cap* loci serotype and structure in your *Haemophilus influenzae* assemblies.
 
-**This tools remains under developemnt and is not quite ready to use**
+**This tools remains under development and is not quite ready to use**
 
 
 ## Table of contents
@@ -18,23 +18,24 @@ Identify *cap* loci serotype and structure in your *Haemophilus influenzae* asse
 
 
 ## Introduction
-The *cap* locus of *H. influenzae* are categorised into 6 different groups based on serology (a-f). The locus has three
-functionally distinct regions, designated `region I`, `region II`, and `region III`. Genes within `region I` (`bexABCD`) and
-`region III` (`hcsAB`) are associated with membrane transport and post-translation modification. The `region II` genes encode
-serotype specific proteins, each having a distinct set of genes. The difficulty in typing the *H. influenzae* *cap* results
-from the large structual diversity seen in the locus. Partial or whole loci subject to duplication or deletion is not
-uncommon.
+The *cap* loci of *H. influenzae* are categorised into 6 different groups based on serology (a-f). There are three
+functionally distinct regions of the *cap* locus, designated `region I`, `region II`, and `region III`. Genes within `region
+I` (`bexABCD`) and `region III` (`hcsAB`) are associated with membrane transport and post-translation modification. The
+`region II` genes encode serotype specific proteins, with each serotype (a-f) having a distinct set of genes. *cap* loci are
+often subject to structual changes (e.g. duplication, deletion) making the process of *in silico* typing and characterisation
+of loci difficult.
 
-This tools automates identification of the *cap* locus, describes the structual layout of loci, and performs *in silico* serotyping.
+This tools automates identification of the *cap* locus, describes the structual layout, and performs *in silico* serotyping.
 
 
 ## Requirements
 There are a couple of software dependencies that are required:
 * `Python`, version 3.6 or above
-    * `biopython`
-* `BLAST+`, version 2.2.28 or above
+* `Biopython`, version 1.63 or above
+* `BLAST+`, version 2.2.28 or above. Commands used are:
     * `makeblastdb`
     * `blastn`
+
 
 ## Installation
 Recommended method of installation is via `pip`:
