@@ -17,9 +17,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
 
+import pathlib
+import logging
 import unittest
 
 
+from . import tests_directory
 import hi_capsule
 
 
@@ -30,3 +33,21 @@ class TestExecuteFunction(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertEqual(result.stdout, 'test')
         self.assertEqual(result.stderr, '')
+
+    def test_execute_command_2(self):
+        logging.getLogger().setLevel(51)
+        with self.assertRaises(SystemExit):
+            hi_capsule.execute_command('invalid_command')
+
+
+class TestFastaParser(unittest.TestCase):
+
+    def test_read_query_fasta_1(self):
+        input_fp = pathlib.Path(tests_directory, 'data/good.fasta')
+        fasta = hi_capsule.read_query_fasta(input_fp)
+        self.assertEqual(fasta['good'], 'atgc')
+
+    def test_read_query_fasta_2(self):
+        input_fp = pathlib.Path(tests_directory, 'data/bad.fasta')
+        with self.assertRaises(SystemExit):
+            hi_capsule.read_query_fasta(input_fp)

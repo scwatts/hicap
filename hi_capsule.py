@@ -19,6 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
 # TODO: examine corner cases (GCA_002987225; bexD on a different contig)
+# TODO: organise functions
 # TODO: refactor main function into discrete units
 # TODO: many more logging messages
 # TODO: many more unit tests
@@ -29,10 +30,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
 import collections
+from distutils.version import LooseVersion
 import pathlib
 import logging
-import subprocess
+import re
+import shutil
 import statistics
+import subprocess
 import sys
 import tempfile
 
@@ -49,6 +53,7 @@ FLANK_ORDER = REGION_ONE + REGION_THREE
 
 
 BlastResults = collections.namedtuple('BlastResults', BLAST_FORMAT)
+
 
 class GeneData():
 
@@ -133,6 +138,7 @@ def main():
     # Initialise
     args = get_arguments()
     initialise_logging(args.log_level, args.log_fp)
+    check_dependencies()
     check_arguments(args)
     genes_data, region_data = initialise_database(args.database_fps)
 
@@ -172,7 +178,11 @@ def read_query_fasta(query_fp):
     logging.info('Collecting query nucleotide sequence')
     with query_fp.open('r') as fh:
         # TODO: cleaner way to do this?
-        return {desc.split(' ')[0]: seq for desc, seq in SimpleFastaParser(fh)}
+        fasta = {desc.split(' ')[0]: seq for desc, seq in SimpleFastaParser(fh)}
+    if not fasta:
+        logging.error('Could not parse any valid FASTA records from %s', query_fp)
+        sys.exit(1)
+    return fasta
 
 
 def search_flanking_genes(genes_data, query_fp, gene_coverage):
@@ -276,7 +286,7 @@ def initialise_logging(log_level, log_file):
         log_handles.append(logging.FileHandler(log_file, mode='w'))
 
     log_message_format = '%(asctime)s %(levelname)s: %(message)s'
-    log_formatter= logging.Formatter(fmt=log_message_format, datefmt='%d/%m/%Y %H:%M:%S')
+    log_formatter = logging.Formatter(fmt=log_message_format, datefmt='%d/%m/%Y %H:%M:%S')
     logger = logging.getLogger()
     for log_handle in log_handles:
         log_handle.setFormatter(log_formatter)
@@ -311,16 +321,45 @@ def check_filepath_exists(filepath, message_format):
         sys.exit(1)
 
 
-def execute_command(command):
-    logging.debug(command)
+def execute_command(command, check=True):
+    logging.debug('command: %s', command)
     result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True,
                             encoding='utf-8')
-    if result.returncode != 0:
+    if check and result.returncode != 0:
         logging.critical('Failed to run command: %s', result.args)
         logging.critical('stdout: %s', result.stdout)
         logging.critical('stderr: %s', result.stderr)
         sys.exit(1)
     return result
+
+
+def check_dependencies():
+    logging.info('Checking dependencies')
+    dependencies = {'blastn': {
+                        'vcommand': 'blastn -version',
+                        'vregex': re.compile(r'^blastn: (.+)\n'),
+                        'vrequired': '2.7.1+'},
+                    'makeblastdb': {
+                        'vcommand': 'makeblastdb -version',
+                        'vregex': re.compile(r'^makeblastdb: (.+)\n'),
+                        'vrequired': '2.7.1+'}}
+    for dependency, version_data in dependencies.items():
+        if not shutil.which(dependency):
+            logging.critical('Could not find dependency %s' % dependency)
+            sys.exit(1)
+        result = execute_command(version_data['vcommand'], check=False)
+        try:
+            version = version_data['vregex'].search(result.stdout).group(1)
+        except AttributeError:
+            # TODO: should we have an option to skip dependency check?
+            logging.critical('Unable to determine version for %s' % dependency)
+            sys.exit(1)
+        if LooseVersion(version) < LooseVersion(version_data['vrequired']):
+            msg = '%s version %s or high is required'
+            logging.critical(msg % (dependency, version_data['vrequired']))
+            sys.exit(1)
+        else:
+            logging.debug('Found %s version %s' % (dependency, version))
 
 
 def create_blast_database(input_fp, output_dir):
