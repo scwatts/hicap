@@ -17,8 +17,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
 
-import pathlib
 import logging
+import pathlib
 import unittest
 
 
@@ -26,7 +26,7 @@ from . import tests_directory
 import hi_capsule
 
 
-class ExecuteTestCase(unittest.TestCase):
+class CommandExecuteTestCase(unittest.TestCase):
 
     def test_execute_command_1(self):
         result = hi_capsule.execute_command('echo -n test')
@@ -40,7 +40,6 @@ class ExecuteTestCase(unittest.TestCase):
         self.assertEqual(result.stdout, '')
 
     def test_execute_command_3(self):
-        logging.getLogger().setLevel(51)
         with self.assertRaises(SystemExit):
             hi_capsule.execute_command('invalid_command')
 
