@@ -70,9 +70,12 @@ class GeneData():
 
 class Locus():
 
-    def __init__(self, contig, genes):
-        self.contigs = [contig]
-        self.genes = {gene.sseqid: gene for gene in genes}
+    def __init__(self, identifier, contig=None, genes=None):
+        self.identifier = identifier
+        if contig:
+            self.contigs = [contig]
+        if genes:
+            self.genes = {gene.sseqid: gene for gene in genes}
 
         self.type_hits = list()
         self.broken_genes = list()
@@ -146,6 +149,7 @@ def main():
     search_flanking_genes(genes_data, args.query_fp, args.gene_coverage)
     # TODO: CRIT: check for complete genes dropped here
     loci_data = get_best_loci(genes_data)
+    consolidate_loci_contigs(loci_data)
     type_region_two(loci_data, region_data, args.query_fp, args.type_coverage, args.type_identity)
     broken_genes = find_broken_genes(loci_data, genes_data)
     write_results(loci_data, broken_genes)
@@ -206,8 +210,11 @@ def type_region_two(loci_data, region_data, query_fp, type_coverage, type_identi
     query_fasta = read_query_fasta(query_fp)
     with tempfile.TemporaryDirectory() as dh:
         for i, locus_data in enumerate(loci_data, 1):
-            # Write region II
+            # Write region II, if region II is unobtainable then skip
+            # TODO: set flag if region II cannot be extracted
             seq = get_region_two_sequence(locus_data, query_fasta)
+            if not seq:
+                continue
             seq_fp = pathlib.Path(dh, '%s.fasta' % i)
             with seq_fp.open('w') as fh:
                 print('>', i, sep='', file=fh)
@@ -226,6 +233,7 @@ def type_region_two(loci_data, region_data, query_fp, type_coverage, type_identi
 
 
 def find_broken_genes(loci_data, genes_data):
+    # TODO: this strategy needs some attention
     # Attempt to find broken genes for incomplete loci on the same contig
     logging.info('Searching for broken genes near existing loci')
     for incomplete_locus in (l for l in loci_data if not l.is_complete):
@@ -338,11 +346,11 @@ def check_dependencies():
     dependencies = {'blastn': {
                         'vcommand': 'blastn -version',
                         'vregex': re.compile(r'^blastn: (.+)\n'),
-                        'vrequired': '2.7.1+'},
+                        'vrequired': '2.2.28'},
                     'makeblastdb': {
                         'vcommand': 'makeblastdb -version',
                         'vregex': re.compile(r'^makeblastdb: (.+)\n'),
-                        'vrequired': '2.7.1+'}}
+                        'vrequired': '2.2.28'}}
     for dependency, version_data in dependencies.items():
         if not shutil.which(dependency):
             logging.critical('Could not find dependency %s' % dependency)
@@ -409,13 +417,15 @@ def get_best_loci(genes_data):
     logging.info('Region I and III genes found on %s contig(s)', len(contig_genes))
 
     loci_data = list()
+    loci_number = 0
     for contig in contig_genes:
         genes = sorted(contig_genes[contig], key=lambda k: int(k.qstart))
         logging.info('Loci structure on contig %s: %s', contig, ' '.join(g.sseqid for g in genes))
-        for (start, end) in find_loci_boundaries(genes):
+        for start, end in find_loci_boundaries(genes):
+            loci_number += 1
             logging.debug('Locus boundary found at %s %s on %s', start, end, contig)
             logging.debug('Locus contains %s', ' '.join(g.sseqid for g in genes[start:end]))
-            loci_data.append(Locus(contig, genes[start:end]))
+            loci_data.append(Locus(loci_number, contig, genes[start:end]))
     return loci_data
 
 
@@ -469,13 +479,48 @@ def select_locus_sequences(locus_sequences):
     for score_group in sorted(alignment_score_groups, reverse=True):
         # This is not efficient
         for alignment in alignment_score_groups[score_group]:
-            # Exclude alignments shorter than 2 genes
-            if len(alignment) < 3:
-                continue
             # Only record alignment if there is no overlap with previously added alignment
             if not any(p in a for a in best_alignments for p in alignment):
                 best_alignments.append(alignment)
     return best_alignments
+
+
+def consolidate_loci_contigs(loci_data):
+    # If the genome contains a full complement of cap genes but are on different contigs, we
+    # attempt to resolve this here
+    incomplete_loci = [l for l in loci_data if not l.is_complete]
+    contigs = {l.contigs[0] for l in incomplete_loci}
+    if len(contigs) < 1:
+        return
+    else:
+        logging.info('%s contigs contain incomplete loci, attemping to consolidate', len(contigs))
+
+    # Count the number of genes
+    # If there is more than one of any gene then the solution is ambiguous
+    incomplete_loci_genes = dict()
+    for locus_data in loci_data:
+        for gene in locus_data.genes:
+            try:
+                incomplete_loci_genes[gene] += 1
+            except KeyError:
+                incomplete_loci_genes[gene] = 1
+    if any(count > 1 for count in incomplete_loci_genes.values()):
+        logging.warning('Unable to consolidate genes, ambiguous solution with more than one locus')
+        return
+
+    # When we have only a single loci, consolidate all complete genes into a single Locus instance
+    locus_data = Locus(len(loci_data) + 1)
+    locus_data.contigs = contigs
+    locus_data.genes = {gene.sseqid: gene for l in incomplete_loci for gene in l.genes.values()}
+    msg = 'Consolidated loci %s to new locus %s'
+    logging.info(msg, ' '.join(str(l.identifier) for l in incomplete_loci), locus_data.identifier)
+    msg = 'Locus %s contains %s but is discontiguous'
+    logging.info(msg , locus_data.identifier, ' '.join(locus_data.genes))
+
+    # Remove consolidated loci from loci_data and add new instance
+    loci_data.append(locus_data)
+    for locus_data in incomplete_loci:
+        loci_data.remove(locus_data)
 
 
 def find_broken_gene(gene_hits, locus_data=None):
@@ -519,14 +564,18 @@ def broken_hit_distance(gene_hit, locus_data):
 
 
 def get_region_two_sequence(locus_data, query_fasta):
-    # TODO: report position of locus
     if 'hcsA' not in locus_data.genes or 'bexD' not in locus_data.genes:
-        logging.warning('Can\'t extract region II for locus')
+        logging.warning('Can\'t extract region II for locus %s', locus_data.identifier)
+        return
+
+    bexD = locus_data.genes['bexD']
+    hcsA = locus_data.genes['hcsA']
+    if bexD.sseqid != hcsA.sseqid:
+        msg = 'Can\'t extract region II for locus %s, sequences appear to be discontiguous'
+        logging.warning(msg, locus_data.identifier)
         return
 
     # TODO: sort is likely not required, need to think through this more
-    bexD = locus_data.genes['bexD']
-    hcsA = locus_data.genes['hcsA']
     bexD_lower, bexD_upper = sorted((int(bexD.qstart), int(bexD.qend)))
     hcsA_lower, hcsA_upper = sorted((int(hcsA.qstart), int(hcsA.qend)))
 
