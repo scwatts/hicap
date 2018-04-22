@@ -1,5 +1,10 @@
 language: python
 python: 3.6
+dist: trusty
+addons:
+  apt:
+    packages:
+      - ncbi-blast+
 install: pip3 install .
 before_script: pip3 install codecov biopython
 script: coverage run -m unittest
