@@ -38,14 +38,15 @@ There are a couple of software dependencies that are required:
 
 
 ## Installation
-Recommended method of installation is via `pip`:
+Recommended method of installation is simply to clone the repo (for now):
 ```bash
-pip3 install git+https://github.com/scwatts/hicap
+git clone https://github.com/scwatts/hicap.git
 ```
 
 
 ## Usage
 ```bash
+cd hicap
 ./hicap.py --database_dir data/fasta/ --query_fp data/GCA_000210875.1_ASM21087v1_genomic.fasta
 ```
 
