@@ -208,6 +208,7 @@ def type_region_two(loci_data, region_data, query_fp, type_coverage, type_identi
     # Blast inferred region II against references
     logging.info('Extracting region II sequence for typing')
     query_fasta = read_query_fasta(query_fp)
+    logging.info('Aligning region II to known serotype sequences')
     with tempfile.TemporaryDirectory() as dh:
         for i, locus_data in enumerate(loci_data, 1):
             # Write region II, if region II is unobtainable then skip
@@ -229,6 +230,8 @@ def type_region_two(loci_data, region_data, query_fp, type_coverage, type_identi
 
                 type_hit = filter_type_hits(region.blast_results, type_coverage, type_identity)
                 if type_hit:
+                    msg = 'Found good hit for %s in locus %s'
+                    logging.info(msg, region.name, locus_data.identifier)
                     locus_data.type_hits.append((region.name, type_hit))
 
 
@@ -399,7 +402,9 @@ def sort_flanking_hits(blast_results, coverage_minimum):
             complete_genes.append(result)
         else:
             incomplete_genes.append(result)
-    logging.info('Found %s complete %s genes', len(complete_genes), complete_genes[0].sseqid)
+    msg = 'Found %s complete %s gene'
+    msg = '%ss' % msg if len(complete_genes) > 1 else msg
+    logging.info(msg, len(complete_genes), complete_genes[0].sseqid)
     return complete_genes, incomplete_genes
 
 
@@ -414,7 +419,9 @@ def get_best_loci(genes_data):
         except KeyError:
             contig_genes[gene.qseqid] = [gene]
 
-    logging.info('Region I and III genes found on %s contig(s)', len(contig_genes))
+    msg = 'Region I and III genes found on %s contig'
+    msg = '%ss' % msg if len(contig_genes) > 1 else msg
+    logging.info(msg, len(contig_genes))
 
     loci_data = list()
     loci_number = 0
@@ -490,7 +497,7 @@ def consolidate_loci_contigs(loci_data):
     # attempt to resolve this here
     incomplete_loci = [l for l in loci_data if not l.is_complete]
     contigs = {l.contigs[0] for l in incomplete_loci}
-    if len(contigs) < 1:
+    if len(contigs) < 2:
         return
     else:
         logging.info('%s contigs contain incomplete loci, attemping to consolidate', len(contigs))
@@ -570,7 +577,7 @@ def get_region_two_sequence(locus_data, query_fasta):
 
     bexD = locus_data.genes['bexD']
     hcsA = locus_data.genes['hcsA']
-    if bexD.sseqid != hcsA.sseqid:
+    if bexD.qseqid != hcsA.qseqid:
         msg = 'Can\'t extract region II for locus %s, sequences appear to be discontiguous'
         logging.warning(msg, locus_data.identifier)
         return
