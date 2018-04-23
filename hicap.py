@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 '''
 Copyright 2018 Stephen Watts
-https://github.com/scwatts/hi_capsule
+https://github.com/scwatts/hicap
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

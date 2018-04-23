@@ -1,6 +1,6 @@
 '''
 Copyright 2018 Stephen Watts
-https://github.com/scwatts/hi_capsule
+https://github.com/scwatts/hicap
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@ import pathlib
 import unittest
 
 
-import hi_capsule
+import hicap
 from . import tests_directory
 
 
@@ -40,7 +40,7 @@ class CreateDatabaseTestCase(unittest.TestCase):
 
     def test_create_database_1(self):
         fasta_fp = pathlib.Path(tests_directory, 'data/good.fasta')
-        self.blast_db_fp = hi_capsule.create_blast_database(fasta_fp, tests_directory)
+        self.blast_db_fp = hicap.create_blast_database(fasta_fp, tests_directory)
         for ext in self.blast_db_ext:
             blast_db_fp_part = pathlib.Path('%s.%s' % (self.blast_db_fp, ext))
             self.assertTrue(blast_db_fp_part.exists())
@@ -48,7 +48,7 @@ class CreateDatabaseTestCase(unittest.TestCase):
     def test_create_database_2(self):
         fasta_fp = pathlib.Path(tests_directory, 'data/bad.fasta')
         with self.assertRaises(SystemExit):
-            hi_capsule.create_blast_database(fasta_fp, tests_directory)
+            hicap.create_blast_database(fasta_fp, tests_directory)
 
 
 class QueryDatabaseTestCase(unittest.TestCase):
@@ -56,9 +56,9 @@ class QueryDatabaseTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         database_fp = pathlib.Path(tests_directory, 'data/type_a.fasta')
-        cls.blast_db_fp = hi_capsule.create_blast_database(database_fp, tests_directory)
+        cls.blast_db_fp = hicap.create_blast_database(database_fp, tests_directory)
         cls.blast_db_ext = ('nhr', 'nin', 'nsq')
-        hi_capsule.BLAST_FORMAT = ['qseqid', 'sseqid', 'qlen', 'slen', 'qstart', 'qend', 'sstart',
+        hicap.BLAST_FORMAT = ['qseqid', 'sseqid', 'qlen', 'slen', 'qstart', 'qend', 'sstart',
                                    'send', 'length', 'mismatch', 'gaps']
 
     @classmethod
@@ -71,12 +71,12 @@ class QueryDatabaseTestCase(unittest.TestCase):
         first_hit = 'Z37516\tZ37516\t5882\t5882\t2161\t5882\t2161\t5882\t3722\t0\t0'
         last_hit = 'Z37516\tZ37516\t5882\t5882\t2965\t2976\t5696\t5685\t12\t0\t0'
         query_fp = pathlib.Path(tests_directory, 'data/type_a_variant.fasta')
-        blast_stdout = hi_capsule.blast_query(query_fp, self.blast_db_fp)
+        blast_stdout = hicap.blast_query(query_fp, self.blast_db_fp)
         hits = [l for l in blast_stdout.rstrip().split('\n')]
         self.assertEqual(hits[0], first_hit)
         self.assertEqual(hits[-1], last_hit)
 
     def test_query_database_2(self):
         query_fp = pathlib.Path(tests_directory, 'data/good.fasta')
-        blast_stdout = hi_capsule.blast_query(query_fp, self.blast_db_fp)
+        blast_stdout = hicap.blast_query(query_fp, self.blast_db_fp)
         self.assertEqual(blast_stdout, '')

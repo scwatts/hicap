@@ -1,9 +1,9 @@
-# Haemophilus Capsule Typing
-[![Build Status](https://travis-ci.org/scwatts/hi_capsule.svg?branch=master)](https://travis-ci.org/scwatts/hi_capsule)
-[![Code Coverage](https://codecov.io/gh/scwatts/hi_capsule/branch/master/graph/badge.svg)](https://codecov.io/gh/scwatts/hi_capsule)
+# hicap
+[![Build Status](https://travis-ci.org/scwatts/hicap.svg?branch=master)](https://travis-ci.org/scwatts/hicap)
+[![Code Coverage](https://codecov.io/gh/scwatts/hicap/branch/master/graph/badge.svg)](https://codecov.io/gh/scwatts/hicap)
 [![License](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0.en.html)
 
-Identify *cap* loci serotype and structure in your *Haemophilus influenzae* assemblies.
+Identify *cap* loci serotype and structure in your *Haemophilus influenzae* assemblies
 
 **This tools remains under development and is not quite ready to use**
 
@@ -22,10 +22,10 @@ The *cap* loci of *H. influenzae* are categorised into 6 different groups based 
 functionally distinct regions of the *cap* locus, designated `region I`, `region II`, and `region III`. Genes within `region
 I` (`bexABCD`) and `region III` (`hcsAB`) are associated with membrane transport and post-translation modification. The
 `region II` genes encode serotype specific proteins, with each serotype (a-f) having a distinct set of genes. *cap* loci are
-often subject to structual changes (e.g. duplication, deletion) making the process of *in silico* typing and characterisation
+often subject to structural changes (e.g. duplication, deletion) making the process of *in silico* typing and characterisation
 of loci difficult.
 
-This tools automates identification of the *cap* locus, describes the structual layout, and performs *in silico* serotyping.
+`hicap` automates identification of the *cap* locus, describes the structural layout, and performs *in silico* serotyping.
 
 
 ## Requirements
@@ -40,12 +40,13 @@ There are a couple of software dependencies that are required:
 ## Installation
 Recommended method of installation is via `pip`:
 ```bash
-pip3 install git+https://github.com/scwatts/hi_capsule
+pip3 install git+https://github.com/scwatts/hicap
 ```
+
 
 ## Usage
 ```bash
-./hi_capsule.py --database_dir data/fasta/ --query_fp data/GCA_000210875.1_ASM21087v1_genomic.fasta
+./hicap.py --database_dir data/fasta/ --query_fp data/GCA_000210875.1_ASM21087v1_genomic.fasta
 ```
 
 
