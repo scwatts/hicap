@@ -147,6 +147,10 @@ def main():
 
     # Run
     search_flanking_genes(genes_data, args.query_fp, args.gene_coverage)
+    # TODO: if we have partial results, write them out
+    if sum(len(g.complete_hits) > 0 for g in genes_data.values()) < 2:
+        logging.info('Found less than two flanking genes, able to identify any cap loci')
+        sys.exit(0)
     # TODO: CRIT: check for complete genes dropped here
     loci_data = get_best_loci(genes_data)
     consolidate_loci_contigs(loci_data)
@@ -200,6 +204,10 @@ def search_flanking_genes(genes_data, query_fp, gene_coverage):
             gene.blast_results = parse_blast_stdout(blast_stdout)
             # Set hits as complete or otherwise
             complete_hits, incomplete_hits = sort_flanking_hits(gene.blast_results, gene_coverage)
+            if len(complete_hits) < 1:
+                logging.info('Found no complete %s gene', gene.name)
+            else:
+                logging.info('Found %s complete %s genes', len(complete_hits), gene.name)
             gene.complete_hits = complete_hits
             gene.incomplete_hits = incomplete_hits
 
@@ -276,6 +284,8 @@ def write_results(loci_data, broken_genes):
     # TODO: print much more info, decide on best format
     # TODO: write results to file. sequences? summary? annotation? png?
     logging.info('Writing results')
+    header = ['contigs', 'complete_genes', 'incomplete_genes', 'serotype', 'start', 'end']
+    print(*header)
     for locus_data in loci_data:
         print(*locus_data.contigs, sep=',', end ='\t')
         print(*locus_data.genes, sep=',', end ='\t')
@@ -402,9 +412,6 @@ def sort_flanking_hits(blast_results, coverage_minimum):
             complete_genes.append(result)
         else:
             incomplete_genes.append(result)
-    msg = 'Found %s complete %s gene'
-    msg = '%ss' % msg if len(complete_genes) > 1 else msg
-    logging.info(msg, len(complete_genes), complete_genes[0].sseqid)
     return complete_genes, incomplete_genes
 
 
@@ -591,7 +598,7 @@ def get_region_two_sequence(locus_data, query_fasta):
         bounds_lower, bounds_upper = sorted((bexD_upper, hcsA_lower))
     else:
         bounds_lower, bounds_upper = sorted((hcsA_upper, bexD_lower))
-    return query_fasta[locus_data.contigs[0]][bounds_lower:bounds_upper]
+    return query_fasta[bexD.qseqid][bounds_lower:bounds_upper]
 
 
 def filter_type_hits(blast_results, coverage_minimum, identity_minimum):
