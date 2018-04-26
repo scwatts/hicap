@@ -35,6 +35,7 @@ There are a couple of software dependencies that are required:
 * `BLAST+`, version 2.2.28 or above. Commands used are:
     * `makeblastdb`
     * `blastn`
+* `Prodigal`, version 2.6.1 or above
 
 
 ## Installation
@@ -47,7 +48,7 @@ git clone https://github.com/scwatts/hicap.git
 ## Usage
 ```bash
 cd hicap
-./hicap.py --database_dir data/fasta/ --query_fp data/GCA_000210875.1_ASM21087v1_genomic.fasta
+./hicap.py --database_dir data/fasta/ --query_fp data/GCA_000210875.1_ASM21087v1_genomic.fasta --output_dir output/
 ```
 
 
