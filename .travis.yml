@@ -5,6 +5,7 @@ addons:
   apt:
     packages:
       - ncbi-blast+
+      - prodigal
 install: pip3 install .
 before_script: pip3 install codecov biopython
 script: coverage run -m unittest

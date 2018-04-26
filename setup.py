@@ -17,5 +17,7 @@ setuptools.setup(
         license=license,
         test_suite='tests',
         packages=setuptools.find_packages(),
-        scripts=['hicap.py']
+        entry_points = {
+                'console_scripts': ['hicap=hicap.main:main'],
+            }
 )

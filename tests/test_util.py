@@ -23,35 +23,35 @@ import unittest
 
 
 from . import tests_directory
-import hicap
+import hicap.utility
 
 
 class CommandExecuteTestCase(unittest.TestCase):
 
     def test_execute_command_1(self):
-        result = hicap.execute_command('echo -n test')
+        result = hicap.utility.execute_command('echo -n test')
         self.assertEqual(result.returncode, 0)
         self.assertEqual(result.stdout, 'test')
         self.assertEqual(result.stderr, '')
 
     def test_execute_command_2(self):
-        result = hicap.execute_command('invalid_command', check=False)
+        result = hicap.utility.execute_command('invalid_command', check=False)
         self.assertEqual(result.returncode, 127)
         self.assertEqual(result.stdout, '')
 
     def test_execute_command_3(self):
         with self.assertRaises(SystemExit):
-            hicap.execute_command('invalid_command')
+            hicap.utility.execute_command('invalid_command')
 
 
 class FastaParserTestCase(unittest.TestCase):
 
     def test_read_query_fasta_1(self):
         input_fp = pathlib.Path(tests_directory, 'data/good.fasta')
-        fasta = hicap.read_query_fasta(input_fp)
+        fasta = hicap.utility.read_fasta(input_fp)
         self.assertEqual(fasta['good'], 'atgc')
 
     def test_read_query_fasta_2(self):
         input_fp = pathlib.Path(tests_directory, 'data/bad.fasta')
         with self.assertRaises(SystemExit):
-            hicap.read_query_fasta(input_fp)
+            hicap.utility.read_fasta(input_fp)
