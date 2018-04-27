@@ -32,23 +32,22 @@ of loci difficult.
 There are a couple of software dependencies that are required:
 * `Python`, version 3.6 or above
 * `Biopython`, version 1.63 or above
+* `Prodigal`, version 2.6.1 or above
 * `BLAST+`, version 2.2.28 or above. Commands used are:
     * `makeblastdb`
     * `blastn`
-* `Prodigal`, version 2.6.1 or above
 
 
 ## Installation
-Recommended method of installation is simply to clone the repo (for now):
+Recommended method of installation is via pip:
 ```bash
-git clone https://github.com/scwatts/hicap.git
+pip3 install --user git+https://github.com/scwatts/hicap.git
 ```
 
 
 ## Usage
 ```bash
-cd hicap
-./hicap.py --database_dir data/fasta/ --query_fp data/GCA_000210875.1_ASM21087v1_genomic.fasta --output_dir output/
+hicap --query_fp data/GCA_000210875.1_ASM21087v1_genomic.fasta --output_dir output/
 ```
 
 
