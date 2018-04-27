@@ -44,8 +44,7 @@ def discover_orfs(loci_data):
                 orf_end = orf.end + locus_data.sequence_offset
                 orf_range = range(orf_start, orf_end)
                 # Hmmm...
-                small_range, large_range = sorted((hit_range, orf_range), key=lambda k: len(k))
-                if max(small_range) in large_range or min(small_range) in large_range:
+                if utility.range_overlaps(hit_range, orf_range):
                     orf.hit = hit
         logging.info('Matched %s ORFs for locus %s', len([o for o in locus_data.orfs if o.hit]), i)
 

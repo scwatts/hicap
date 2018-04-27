@@ -23,18 +23,10 @@ def get_args():
             help='Minimum percentage coverage to consider a single gene complete. [default: 0.80]')
     parser.add_argument('--gene_identity', default=0.75, type=float,
             help='Minimum percentage identity to consider a single gene complete. [default: 0.75]')
-    parser.add_argument('--type_coverage', default=0.90, type=float,
-            help='Minimum percentage coverage to consider a locus type. [default: 0.90]')
-    parser.add_argument('--type_identity', default=0.90, type=float,
-            help='Minimum percentage identity to consider a locus type. [default: 0.90]')
     parser.add_argument('--broken_gene_length', default=60, type=int,
             help='Minimum length to consider a broken gene. [default: 60]')
     parser.add_argument('--broken_gene_identity', default=0.90, type=float,
             help='Minimum percentage identity to consider a broken gene. [default: 0.90]')
-    parser.add_argument('--broken_type_length', default=400, type=int,
-            help='Minimum length to consider a broken type. [default: 400]')
-    parser.add_argument('--broken_type_identity', default=0.90, type=float,
-            help='Minimum percentage identity to consider a broken type. [default: 0.90]')
     parser.add_argument('--debug', action='store_const', dest='log_level', const=logging.DEBUG,
             default=logging.INFO, help='Print debug messages')
     parser.add_argument('--log_fp', type=pathlib.Path,

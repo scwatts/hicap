@@ -78,6 +78,11 @@ def check_dependencies():
             logging.debug('Found %s version %s' % (dependency, version))
 
 
+def range_overlaps(r1, r2):
+    sr, lr = sorted((r1, r2), key=lambda k: len(k))
+    return max(sr) in lr or min(sr) in lr
+
+
 def read_fasta(filepath):
     logging.info('Collecting nucleotide sequence')
     with filepath.open('r') as fh:

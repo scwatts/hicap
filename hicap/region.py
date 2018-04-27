@@ -3,6 +3,7 @@ import tempfile
 
 
 from . import blast
+from . import utility
 
 
 REGION_ONE = ('bexA', 'bexB', 'bexC', 'bexD')
@@ -17,6 +18,7 @@ class Database():
 
         self.fps = list()
         self.parameters = dict()
+        self.hits = dict()
 
 
 class Hits():
@@ -28,6 +30,10 @@ class Hits():
 
         self.missing = 0
         self.broken_hits = list()
+
+    @property
+    def all_hits(self):
+        return self.complete_hits + self.broken_hits
 
 
 class LocusData():
@@ -57,20 +63,18 @@ def init_databases(args):
     # Set filepaths and then parameters
     databases = {region: Database(region) for region in database_map.values()}
     for database_fp in args.database_fps:
-        database_region = database_map[database_fp.stem]
-        databases[database_region].fps.append(database_fp)
+        database_name = database_map[database_fp.stem]
+        databases[database_name].fps.append(database_fp)
 
     for database in databases.values():
+        database.parameters = {'coverage_min': args.gene_coverage,
+                                'identity_min': args.gene_identity,
+                                'broken_identity_min': args.broken_gene_identity,
+                                'broken_length_min': args.broken_gene_length}
         if database.region in ('one', 'three'):
-            database.parameters = {'coverage_min': args.gene_coverage,
-                                   'identity_min': args.gene_identity,
-                                   'broken_identity_min': args.broken_gene_identity,
-                                   'broken_length_min': args.broken_gene_length}
+            database.filter_func = filter_flat_blast_hits
         elif database.region == 'two':
-            database.parameters = {'coverage_min': args.type_coverage,
-                                   'identity_min': args.type_identity,
-                                   'broken_identity_min': args.broken_type_identity,
-                                   'broken_length_min': args.broken_type_length}
+            database.filter_func = filter_multi_blast_hits
     return databases
 
 
@@ -85,15 +89,22 @@ def align_region(query_fp, database_fps):
     return results
 
 
-def search_region(query_fp, database):
+def search_database(query_fp, database):
     logging.info('Searching for region %s hits', database.region)
-    results = dict()
     for gene, hits in align_region(query_fp, database.fps).items():
-        results[gene] = filter_blast_hits(gene, hits, database.parameters)
-    return results
+        database.hits[gene] = database.filter_func(gene, hits, database.parameters)
 
 
-def filter_blast_hits(name, blast_results, params):
+def gene_hit_generator(database):
+    for data in database.hits.values():
+        if database.region == 'two':
+            for type_hits in data.values():
+                yield type_hits
+        else:
+            yield data
+
+
+def filter_flat_blast_hits(name, blast_results, params):
     complete_hits = list()
     partial_hits = list()
     for result in blast_results:
@@ -112,54 +123,86 @@ def filter_blast_hits(name, blast_results, params):
     return Hits(name, complete_hits, partial_hits)
 
 
-def count_and_set_missing(region_hits):
-    counts = count_units(region_hits)
+def filter_multi_blast_hits(name, blast_results, params):
+    # Group by sseqid
+    blast_results_genes = dict()
+    for br in blast_results:
+        try:
+            blast_results_genes[br.sseqid].append(br)
+        except KeyError:
+            blast_results_genes[br.sseqid] = [br]
+    genes_hits = dict()
+    for gene, br in blast_results_genes.items():
+        genes_hits[gene] = filter_flat_blast_hits(gene, br, params)
+    return genes_hits
+
+
+def resolve_region_two_overlaps(databases):
+    most_probable = list()
+    sort_func = lambda k: sum(bool(v.complete_hits) for k, v in databases.hits[k].items())
+    region_type_priority = sorted(databases.hits, key=sort_func, reverse=True)
+    for region_type in region_type_priority:
+        region_type_hits = databases.hits[region_type]
+        # Most inefficient
+        for gene, gene_hits in region_type_hits.items():
+            for hit in gene_hits.complete_hits:
+                start, end = sorted((hit.qstart, hit.qend))
+                if any(utility.range_overlaps(range(start, end), r) for r in most_probable):
+                    gene_hits.complete_hits.remove(hit)
+                else:
+                    most_probable.append(range(start, end))
+    # Remove types without hits
+    empty_types = list()
+    for region_type, region_type_hits in databases.hits.items():
+        if not all(bool(gh.complete_hits) for gh in region_type_hits.values()):
+            empty_types.append(region_type)
+    for empty_type in empty_types:
+        del databases.hits[empty_type]
+
+
+def count_and_set_missing(databases):
+    counts = count_units(databases)
     total_loci = max(counts.values())
     complete_loci = min(counts.values())
     incomplete_loci = total_loci - complete_loci
     msg = 'Found %s full and %s partial complement(s) of the cap locus'
     logging.info(msg, complete_loci, incomplete_loci)
 
-    missing_count = set_missing(region_hits, total_loci)
+    missing_count = set_missing(databases, total_loci)
     if incomplete_loci:
         logging.info('Missing %s gene(s) to complete partial complements', len(missing_count))
 
 
-def count_units(region_hits):
+def count_units(databases):
     '''Get count of good hits for genes and types'''
     counts = dict()
-    for gene, gene_hits in region_hits['one'].items():
+    for gene, gene_hits in databases['one'].hits.items():
         counts[gene] = len(gene_hits.complete_hits)
-    for gene, gene_hits in region_hits['two'].items():
-        try:
-            counts['region_two'] += len(gene_hits.complete_hits)
-        except KeyError:
-            counts['region_two'] = len(gene_hits.complete_hits)
-    for gene, gene_hits in region_hits['three'].items():
+    region_two_hit_gen = (gh for th in databases['two'].hits.values() for gh in th.values())
+    region_two_counts = [len(gh.complete_hits) for gh in region_two_hit_gen]
+    counts['region_two'] = max(region_two_counts) if region_two_counts else 0
+    for gene, gene_hits in databases['three'].hits.items():
         counts[gene] = len(gene_hits.complete_hits)
     return counts
 
 
-def set_missing(region_hits, total_loci):
+def set_missing(databases, total_loci):
     '''For each Hits instance, set the number of missing genes/types'''
     missing_counts = dict()
-    for region_name, region in region_hits.items():
-        for hits in region.values():
+    for database in databases.values():
+        for hits in gene_hit_generator(database):
             missing_count = total_loci - len(hits.complete_hits)
-            if region_name == 'two':
-                if len(hits.complete_hits) > 0 and missing_count:
-                    logging.debug('Missing %s region two', missing_count)
-            elif missing_count > 0:
+            if missing_count > 0:
                 logging.debug('Missing %s %s', missing_count, hits.name)
                 hits.missing = missing_count
                 missing_counts[hits.name] = missing_count
     return missing_counts
 
 
-def find_missing(region_hits, databases):
+def find_missing(databases):
     '''For gene Hit instance, attempt to find broken/ truncated genes'''
-    for (region_name, region), database in zip(region_hits.items(), databases.values()):
-        for hits in region.values():
+    for region_name, database in databases.items():
+        for hits in gene_hit_generator(database):
             for hit in hits.partial_hits:
                 if hits.missing == 0:
                     break
@@ -169,15 +212,24 @@ def find_missing(region_hits, databases):
                     continue
                 else:
                     hits.missing -= 1
+                    logging.info('Found truncated gene %s', hits.name)
                     hits.broken_hits.append(hit)
 
 
-def aggregate_hits_and_sort(region_hits):
+def total_items_found(databases):
+    count = 0
+    for database in databases.values():
+        for hits in gene_hit_generator(database):
+            count += len(hits.complete_hits + hits.broken_hits)
+    return count
+
+
+def aggregate_hits_and_sort(databases):
     '''Sort complete and broken hits into contig and then order by position'''
     contig_hits = dict()
-    for region in region_hits.values():
-        for region_hits in region.values():
-            for hit in region_hits.complete_hits + region_hits.broken_hits:
+    for database in databases.values():
+        for gene_hits in gene_hit_generator(database):
+            for hit in gene_hits.all_hits:
                 try:
                     contig_hits[hit.qseqid].append(hit)
                 except KeyError:
