@@ -17,6 +17,7 @@ setuptools.setup(
         license=license,
         test_suite='tests',
         packages=setuptools.find_packages(),
+        package_data={'hicap': ['database/*fasta']},
         entry_points = {
                 'console_scripts': ['hicap=hicap.main:main'],
             }

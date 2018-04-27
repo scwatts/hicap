@@ -11,8 +11,9 @@ def get_args():
     parser = argparse.ArgumentParser()
     # Inputs
     # TODO: need to work on generalising structure and naming of database
-    parser.add_argument('--database_dir', required=True, type=pathlib.Path,
-            help='Directory containing locus database')
+    database_dir = pathlib.Path(__file__).parent / 'database'
+    parser.add_argument('--database_dir', required=True, type=pathlib.Path, default=database_dir,
+            help='Directory containing locus database. [default: %s]' % database_dir)
     parser.add_argument('--query_fp', required=True, type=pathlib.Path,
             help='Input FASTA query')
     parser.add_argument('--output_dir', required=True, type=pathlib.Path,
