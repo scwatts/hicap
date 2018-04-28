@@ -45,12 +45,28 @@ def main():
     ## Annotate loci data and write out data
     annotation.discover_orfs(loci_data)
     annotation.generate_genbank(loci_data, args.query_fp.stem)
-    ## TODO: output some text info as well (serotype, complete genes, broken genes, etc)
     logging.info('Writing genbank records')
-    for i, locus_data in enumerate(loci_data.values(), 1):
-        output_fp = pathlib.Path(args.output_dir, '%s_%s.gbk' %(args.query_fp.name, i))
-        with output_fp.open('w') as fh:
+    output_gbk_fp = pathlib.Path(args.output_dir, '%s.gbk' % args.query_fp.name)
+    output_summary_fp = pathlib.Path(args.output_dir, '%s.tsv' % args.query_fp.name)
+
+    with output_gbk_fp.open('w') as fh:
+        for locus_data in loci_data.values():
             Bio.SeqIO.write(locus_data.genbank, fh, 'genbank')
+
+    with output_summary_fp.open('w') as fh:
+        print('#', end='', file=fh)
+        print(*{serotype for serotype in databases['two'].hits}, file=fh)
+        for locus_data in loci_data.values():
+            print(locus_data.contig, end='\t', file=fh)
+            print(locus_data.qstart, end='\t', file=fh)
+            print(locus_data.qend, end='\t', file=fh)
+            genes = list()
+            for hit in locus_data.hits:
+                gene = hit.sseqid
+                if hit.broken:
+                    gene = '%s*' % gene
+                genes.append(gene)
+            print(*genes, sep=',', file=fh)
 
 
 if __name__ == '__main__':

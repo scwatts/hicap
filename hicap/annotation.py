@@ -52,11 +52,11 @@ def discover_orfs(loci_data):
 def generate_genbank(loci_data, query_name):
     # Create genbank records
     logging.info('Creating genbank records')
-    for locus_data in loci_data.values():
+    for i, locus_data in enumerate(loci_data.values(), 1):
         locus_data.genbank = Bio.SeqRecord.SeqRecord(
                 seq=Bio.Seq.Seq(locus_data.sequence, Bio.Alphabet.IUPAC.unambiguous_dna),
-                id=str(id(locus_data)),
-                name=query_name[:15])
+                name='locus_part_%s' % i,
+                id=query_name[:15])
         for orf in locus_data.orfs:
             if orf.hit:
                 if 'type' not in orf.hit.sseqid:

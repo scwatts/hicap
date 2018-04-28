@@ -213,6 +213,7 @@ def find_missing(databases):
                 else:
                     hits.missing -= 1
                     logging.info('Found truncated gene %s', hits.name)
+                    hit.broken = True
                     hits.broken_hits.append(hit)
 
 
