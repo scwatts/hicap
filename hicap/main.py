@@ -46,8 +46,8 @@ def main():
     annotation.discover_orfs(loci_data)
     annotation.generate_genbank(loci_data, args.query_fp.stem)
     logging.info('Writing genbank records')
-    output_gbk_fp = pathlib.Path(args.output_dir, '%s.gbk' % args.query_fp.name)
-    output_summary_fp = pathlib.Path(args.output_dir, '%s.tsv' % args.query_fp.name)
+    output_gbk_fp = pathlib.Path(args.output_dir, '%s.gbk' % args.query_fp.stem)
+    output_summary_fp = pathlib.Path(args.output_dir, '%s.tsv' % args.query_fp.stem)
 
     with output_gbk_fp.open('w') as fh:
         for locus_data in loci_data.values():
