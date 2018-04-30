@@ -37,15 +37,21 @@ def discover_orfs(loci_data):
             logging.info('Found %s ORFs for locus %s', len(locus_data.orfs), i)
 
         # Most inefficiently match orfs with BLAST alignments
+        matches = {hit: list() for hit in locus_data.hits}
         for orf in locus_data.orfs:
             for hit in locus_data.hits:
                 hit_range = range(*sorted((hit.qstart, hit.qend)))
                 orf_start = orf.start + locus_data.sequence_offset
                 orf_end = orf.end + locus_data.sequence_offset
                 orf_range = range(orf_start, orf_end)
-                # Hmmm...
-                if utility.range_overlaps(hit_range, orf_range):
-                    orf.hit = hit
+
+                overlap_size = utility.range_overlap_size(hit_range, orf_range)
+                if overlap_size:
+                    matches[hit].append((orf, overlap_size))
+        # Apply named matches to orfs
+        for hit, overlaps in matches.items():
+            best_orf, overlap = max(overlaps, key=lambda k: k[1])
+            best_orf.hit = hit
         logging.info('Matched %s ORFs for locus %s', len([o for o in locus_data.orfs if o.hit]), i)
 
 

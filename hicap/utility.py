@@ -83,6 +83,16 @@ def range_overlaps(r1, r2):
     return max(sr) in lr or min(sr) in lr
 
 
+def range_overlap_size(r1, r2):
+    sr, lr = sorted((r1, r2), key=lambda k: len(k))
+    if max(sr) in lr or min(sr) in lr:
+        lb = max(min(r) for r in (sr, lr))
+        ub = min(max(r) for r in (sr, lr))
+        return len(range(lb, ub))
+    else:
+        return 0
+
+
 def read_fasta(filepath):
     logging.info('Collecting nucleotide sequence')
     with filepath.open('r') as fh:
