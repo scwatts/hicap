@@ -146,11 +146,12 @@ def resolve_region_two_overlaps(databases):
         # Most inefficient
         for gene, gene_hits in region_type_hits.items():
             for hit in gene_hits.complete_hits:
-                start, end = sorted((hit.qstart, hit.qend))
-                if any(utility.range_overlaps(range(start, end), r) for r in most_probable):
+                hit_range = range(*sorted((hit.qstart, hit.qend)))
+                overlaps = (utility.range_overlap_size(hit_range, r) for r in most_probable)
+                if any(overlap > 20 for overlap in overlaps):
                     gene_hits.complete_hits.remove(hit)
                 else:
-                    most_probable.append(range(start, end))
+                    most_probable.append(hit_range)
     # Remove types without hits
     empty_types = list()
     for region_type, region_type_hits in databases.hits.items():
