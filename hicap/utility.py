@@ -46,18 +46,20 @@ def execute_command(command, check=True):
 
 def check_dependencies():
     logging.info('Checking dependencies')
-    dependencies = {'blastn': {
-                        'vcommand': 'blastn -version',
-                        'vregex': re.compile(r'^blastn: (.+)\n'),
-                        'vrequired': '2.2.28'},
-                    'makeblastdb': {
-                        'vcommand': 'makeblastdb -version',
-                        'vregex': re.compile(r'^makeblastdb: (.+)\n'),
-                        'vrequired': '2.2.28'},
-                    'prodigal': {
-                        'vcommand': 'prodigal -v 2>&1',
-                        'vregex': re.compile(r'.*Prodigal V(.+?):'),
-                        'vrequired': '2.6.1'}}
+    dependencies = {
+            'blastn': {
+                'vcommand': 'blastn -version',
+                'vregex': re.compile(r'^blastn: (.+)\n'),
+                'vrequired': '2.2.28'},
+            'makeblastdb': {
+                'vcommand': 'makeblastdb -version',
+                'vregex': re.compile(r'^makeblastdb: (.+)\n'),
+                'vrequired': '2.2.28'},
+            'prodigal': {
+                'vcommand': 'prodigal -v 2>&1',
+                'vregex': re.compile(r'.*Prodigal V(.+?):'),
+                'vrequired': '2.6.1'}
+            }
     for dependency, version_data in dependencies.items():
         if not shutil.which(dependency):
             logging.critical('Could not find dependency %s' % dependency)
@@ -67,7 +69,6 @@ def check_dependencies():
             version = version_data['vregex'].search(result.stdout).group(1)
         except AttributeError:
             # TODO: should we have an option to skip dependency check?
-            print(result)
             logging.critical('Unable to determine version for %s' % dependency)
             sys.exit(1)
         if LooseVersion(version) < LooseVersion(version_data['vrequired']):
@@ -92,7 +93,7 @@ def read_fasta(filepath):
     logging.info('Collecting nucleotide sequence')
     with filepath.open('r') as fh:
         # TODO: cleaner way to do this?
-        fasta = {desc.split(' ')[0]: seq for desc, seq in SimpleFastaParser(fh)}
+        fasta = {desc: seq for desc, seq in SimpleFastaParser(fh)}
     if not fasta:
         logging.error('Could not parse any valid FASTA records from %s', filepath)
         sys.exit(1)

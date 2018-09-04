@@ -68,6 +68,8 @@ def check_args(args):
         logging.error(msg, args.database_dir)
         sys.exit(1)
 
+    # TODO: check that all database files are present
+
     # Directory
     if not args.output_dir.exists():
         logging.error('Output directory %s does not exist', args.output_dir)

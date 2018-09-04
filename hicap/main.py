@@ -1,18 +1,13 @@
 import logging
 import pathlib
-import sys
-
-
-import Bio.SeqIO
+import subprocess
+import tempfile
 
 
 from . import annotation
 from . import arguments
-from . import region
+from . import database
 from . import utility
-
-
-# TODO: improve fuzzy range matching with BLAST htis and predicted ORFs
 
 
 def main():
@@ -21,52 +16,44 @@ def main():
     utility.initialise_logging(args.log_level, args.log_fp)
     utility.check_dependencies()
     arguments.check_args(args)
-    databases = region.init_databases(args)
 
-    # Find complete good hits
-    for locus_region in databases:
-        region.search_database(args.query_fp, databases[locus_region])
+    # Collect ORFs from input assembly
+    orfs_all = annotation.collect_orfs(args.query_fp)
 
-    # Resolve overlaps in region II, if any
-    region.resolve_region_two_overlaps(databases['two'])
+    # Align ORFs to databases using BLAST
+    with tempfile.TemporaryDirectory() as dh:
+        orfs_fp = pathlib.Path(dh, 'orfs.fasta')
+        with orfs_fp.open('w') as fh:
+            for i, orf in enumerate(orfs_all):
+                print('>%s' % i, orf.sequence, sep='\n', file=fh)
+        hits_all = database.search(orfs_fp, args.database_fps)
 
-    # Attempt to locate missing, truncated genes
-    region.count_and_set_missing(databases)
-    region.find_missing(databases)
-    if not region.total_items_found(databases):
-        logging.warning('No cap locus genes found, exiting')
-        sys.exit(0)
+    # Assign hits to ORFs and record those with filtered hits
+    hits_filtered = database.filter_hits(hits_all, coverage_min=args.gene_coverage,
+                                            identity_min=args.gene_identity)
+    orf_indices = set()
+    for region, hits in hits_filtered.items():
+        for hit in hits:
+            orf_index = int(hit.qseqid)
+            orf_indices.add(orf_index)
+            try:
+                orfs_all[orf_index].hits[region].append(hit)
+            except KeyError:
+                orfs_all[orf_index].hits[region] = [hit]
 
-    ## Sort into contigs and extract sequence
-    query_fastas = utility.read_fasta(args.query_fp)
-    loci_data = region.aggregate_hits_and_sort(databases)
-    region.extract_sequences(loci_data, query_fastas)
+    # Extract ORFs and try to find missing genes (truncated or broken)
+    orfs_complete = [orfs_all[index] for index in orf_indices]
+    genes_broken = database.discover_missing_genes(orfs_complete)
+    orfs_broken = database.collect_missing_orfs(genes_broken, orfs_all, hits_all, hits_filtered,
+                                                    args.broken_gene_identity, args.broken_gene_length)
 
-    ## Annotate loci data and write out data
-    annotation.discover_orfs(loci_data)
-    annotation.generate_genbank(loci_data, args.query_fp.stem)
-    logging.info('Writing genbank records')
-    output_gbk_fp = pathlib.Path(args.output_dir, '%s.gbk' % args.query_fp.stem)
-    output_summary_fp = pathlib.Path(args.output_dir, '%s.tsv' % args.query_fp.stem)
-
-    with output_gbk_fp.open('w') as fh:
-        for locus_data in loci_data.values():
-            Bio.SeqIO.write(locus_data.genbank, fh, 'genbank')
-
-    with output_summary_fp.open('w') as fh:
-        print('#', end='', file=fh)
-        print(*{serotype for serotype in databases['two'].hits}, file=fh)
-        for locus_data in loci_data.values():
-            print(locus_data.contig, end='\t', file=fh)
-            print(locus_data.qstart, end='\t', file=fh)
-            print(locus_data.qend, end='\t', file=fh)
-            genes = list()
-            for hit in locus_data.hits:
-                gene = hit.sseqid
-                if hit.broken:
-                    gene = '%s*' % gene
-                genes.append(gene)
-            print(*genes, sep=',', file=fh)
+    # Annotate loci and serotype
+    orfs = orfs_complete + orfs_broken
+    for loci in database.characterise_loci(orfs):
+        # TODO: smallest of start and end
+        # TODO: print region two gene names
+        print(loci.contig, loci.orfs[0].start, loci.orfs[-1].end, end='\t')
+        print(*(hit for orf in loci.orfs for hit in orf.hits), sep=',')
 
 
 if __name__ == '__main__':

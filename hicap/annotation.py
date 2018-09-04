@@ -1,7 +1,5 @@
 import logging
-import pathlib
 import re
-import tempfile
 
 
 import Bio.Alphabet
@@ -13,46 +11,35 @@ import Bio.SeqFeature
 from . import utility
 
 
-PRODIGAL_RE = re.compile(r'^>[0-9]+_([0-9]+)_([0-9]+)_([-\+])$')
+PRODIGAL_RESULT_RE = re.compile(r'^>[0-9]+_([0-9]+)_([0-9]+)_([-\+])$')
+PRODIGAL_CONTIG_RE = re.compile(r'^# Sequence.+?seqhdr="(.+?)"(?:;|$)')
 
 
 class Orf():
 
-    def __init__(self, start, end, strand):
-        self.start = start
-        self.end = end
+    def __init__(self, contig, start, end, strand):
+        self.contig = contig
+        self.start = int(start)
+        self.end = int(end)
         self.strand = strand
 
-        self.hit = None
+        self.sequence = str()
+        self.hits = dict()
+        self.broken = False
 
 
-def discover_orfs(loci_data):
-    logging.info('Discovering ORFs and matching with BLAST alignments')
-    for i, locus_data in enumerate(loci_data.values(), 1):
-        with tempfile.TemporaryDirectory() as dh:
-            fasta_fp = pathlib.Path(dh, '%s.fasta' % id(locus_data))
-            utility.write_fasta(id(locus_data), locus_data.sequence, fasta_fp)
-            prodigal_stdout = annotate(fasta_fp)
-            locus_data.orfs = process_prodigal_stdout(prodigal_stdout)
-            logging.info('Found %s ORFs for locus %s', len(locus_data.orfs), i)
+def collect_orfs(fasta_fp):
+    logging.info('Collecting ORFs from FASTA file')
+    prodigal_stdout = annotate(fasta_fp)
+    orfs = process_prodigal_stdout(prodigal_stdout)
 
-        # Most inefficiently match orfs with BLAST alignments
-        matches = {hit: list() for hit in locus_data.hits}
-        for orf in locus_data.orfs:
-            for hit in locus_data.hits:
-                hit_range = range(*sorted((hit.qstart, hit.qend)))
-                orf_start = orf.start + locus_data.sequence_offset
-                orf_end = orf.end + locus_data.sequence_offset
-                orf_range = range(orf_start, orf_end)
+    logging.info('Extracting nucleotide sequence of ORFs')
+    fasta = utility.read_fasta(fasta_fp)
+    for orf in orfs:
+        orf.sequence = fasta[orf.contig][orf.start-1:orf.end]
 
-                overlap_size = utility.range_overlap_size(hit_range, orf_range)
-                if overlap_size:
-                    matches[hit].append((orf, overlap_size))
-        # Apply named matches to orfs
-        for hit, overlaps in matches.items():
-            best_orf, overlap = max(overlaps, key=lambda k: k[1])
-            best_orf.hit = hit
-        logging.info('Matched %s ORFs for locus %s', len([o for o in locus_data.orfs if o.hit]), i)
+    logging.info('Found %s ORFs', len(orfs))
+    return orfs
 
 
 def generate_genbank(loci_data, query_name):
@@ -88,6 +75,14 @@ def annotate(query_fp):
 
 def process_prodigal_stdout(prodigal_results):
     logging.debug('Parsing %s Prodgial results', len(prodigal_results))
-    results_line_gen = (line for line in prodigal_results.split('\n') if not line.startswith('#'))
-    results_group_gen =(PRODIGAL_RE.match(line).groups() for line in results_line_gen if line)
-    return [Orf(int(s), int(e), d) for s, e, d in results_group_gen]
+    orfs = list()
+    contig = str()
+    for line in prodigal_results.rstrip().split('\n'):
+        if line.startswith('# Sequence Data'):
+            contig = PRODIGAL_CONTIG_RE.match(line).group(1)
+        elif line.startswith('# Model Data'):
+            continue
+        else:
+            result = PRODIGAL_RESULT_RE.match(line).groups()
+            orfs.append(Orf(contig, *result))
+    return orfs
