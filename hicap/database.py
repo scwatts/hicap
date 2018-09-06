@@ -47,7 +47,7 @@ class Hits():
         return _assigned
 
 
-class Locus():
+class Block():
 
     def __init__(self, contig, orfs, serotype):
         self.contig = contig
@@ -166,7 +166,7 @@ def characterise_loci(orfs):
     '''Given a list of ORFs define loci predicated on distance'''
     # Process from largest group to smallest
     groups = find_neighbours(orfs)
-    loci = list()
+    loci_blocks = list()
     for contig, group_orfs in sorted(groups, key=lambda k: len(k[1])):
         # Sort ORFs by region and predict region two serotype
         region_orfs = orf_region_sort(group_orfs)
@@ -174,8 +174,8 @@ def characterise_loci(orfs):
         for neighbourhood in find_neighbours(region_orfs['two']):
             rtwo_type = predict_region_two_type(region_orfs['two'])
             region_two_types.append(rtwo_type)
-        loci.append(Locus(contig, group_orfs, region_two_types))
-    return loci
+        loci_blocks.append(Block(contig, group_orfs, region_two_types))
+    return loci_blocks
 
 
 def predict_region_two_type(orfs):
