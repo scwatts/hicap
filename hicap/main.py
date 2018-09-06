@@ -34,22 +34,49 @@ def main():
     if not hits.complete:
         logging.info('No hits to any cap locus gene found, exiting')
         sys.exit(0)
+    else:
+        for database_name, database_hits in hits.complete.items():
+            message = 'Found %s %s for %s'
+            hit_quant = 'hits' if len(database_hits) > 1 else 'hit'
+            logging.info(message, len(database_hits), hit_quant, database_name)
 
     # Find missing genes - select the best hit for each missing gene
     missing_genes = database.discover_missing_genes(hits.complete)
     if missing_genes:
+        logging.info('Searching for %s missing genes', sum(count for count in missing_genes.values()))
         hits.broken = database.filter_hits(hits.remaining, identity_min=args.broken_gene_identity, length_min=args.broken_gene_length)
         hits.broken = database.select_best_hits(hits.broken, missing_genes)
+        logging.info('Found %s missing genes', len([count for counts in hits.broken.values() for count in counts]))
 
     # Assign hits to ORFs
+    logging.info('Assigning hits to ORFs')
     orfs_assigned = database.match_orfs_and_hits(hits.passed, orfs_all)
 
     # Annotate loci and serotype
-    for loci in database.characterise_loci(orfs_assigned):
-        # TODO: smallest of start and end
-        # TODO: print region two gene names
-        print(loci.contig, loci.orfs[0].start, loci.orfs[-1].end, end='\t')
-        print(*(hit for orf in loci.orfs for hit in orf.hits), sep=',')
+    logging.info('Performing loci gene collation and seroptying')
+    loci_blocks = database.characterise_loci(orfs_assigned)
+
+    # Print results
+    serotypes = {s for lb in loci_blocks for s in lb.serotypes}
+    print('#', ','.join(serotypes), sep='')
+    for loci_block in loci_blocks:
+        genes = list()
+        for orf in loci_block.orfs:
+            # There should only ever be one hit per ORF here
+            database_name, [orf_hit] = list(orf.hits.items())[0]
+            # TODO: is there an appreciable difference if we construct a reverse hash map
+            for region, databases in database.SCHEME.items():
+                if database_name in databases:
+                    orf_region = region
+                    break
+            # Get appropriate representation of gene name
+            if region == 'two':
+                genes.append(orf_hit.sseqid)
+            else:
+                genes.append(database_name)
+        start = loci_block.orfs[0].start
+        end = loci_block.orfs[-1].end
+        print(loci_block.contig, start, end, ','.join(genes), sep='\t')
 
 
 if __name__ == '__main__':
