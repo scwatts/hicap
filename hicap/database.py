@@ -126,7 +126,7 @@ def orf_region_sort(orfs):
 
 
 def match_orfs_and_hits(hits, orfs):
-    # Add hit information to ORFs
+    '''Assign hits to respective ORFs'''
     orf_indices = set()
     for region, hits in hits.items():
         for hit in hits:
