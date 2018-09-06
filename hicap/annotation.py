@@ -2,12 +2,6 @@ import logging
 import re
 
 
-import Bio.Alphabet
-import Bio.Seq
-import Bio.SeqRecord
-import Bio.SeqFeature
-
-
 from . import utility
 
 
@@ -40,30 +34,6 @@ def collect_orfs(fasta_fp):
 
     logging.info('Found %s ORFs', len(orfs))
     return orfs
-
-
-def generate_genbank(loci_data, query_name):
-    # Create genbank records
-    logging.info('Creating genbank records')
-    for i, locus_data in enumerate(loci_data.values(), 1):
-        locus_data.genbank = Bio.SeqRecord.SeqRecord(
-                seq=Bio.Seq.Seq(locus_data.sequence, Bio.Alphabet.IUPAC.unambiguous_dna),
-                name='locus_part_%s' % i,
-                id=query_name[:15])
-        for orf in locus_data.orfs:
-            if orf.hit:
-                if 'type' not in orf.hit.sseqid:
-                    qualifiers = {'gene': orf.hit.sseqid}
-                else:
-                    qualifiers = {'locus_tag': orf.hit.sseqid}
-            else:
-                qualifiers = {}
-            feature_location = Bio.SeqFeature.FeatureLocation(start=orf.start, end=orf.end)
-            feature = Bio.SeqFeature.SeqFeature(
-                    location=feature_location,
-                    type='CDS',
-                    qualifiers=qualifiers)
-            locus_data.genbank.features.append(feature)
 
 
 def annotate(query_fp):

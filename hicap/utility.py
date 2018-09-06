@@ -6,7 +6,14 @@ import subprocess
 import sys
 
 
-from Bio.SeqIO.FastaIO import SimpleFastaParser
+import Bio.Alphabet
+import Bio.Seq
+import Bio.SeqRecord
+import Bio.SeqFeature
+import Bio.SeqIO.FastaIO
+
+
+from . import database
 
 
 def initialise_logging(log_level, log_file):
@@ -83,8 +90,48 @@ def read_fasta(filepath):
     logging.info('Collecting nucleotide sequence')
     with filepath.open('r') as fh:
         # TODO: cleaner way to do this?
-        fasta = {desc: seq for desc, seq in SimpleFastaParser(fh)}
+        fasta = {desc: seq for desc, seq in Bio.SeqIO.FastaIO.SimpleFastaParser(fh)}
     if not fasta:
         logging.error('Could not parse any valid FASTA records from %s', filepath)
         sys.exit(1)
     return fasta
+
+
+def create_genbank_record(loci_blocks, fasta_fp):
+    logging.info('Creating genbank records')
+    genbank_records = list()
+    fasta = read_fasta(fasta_fp)
+    for i, loci_block in enumerate(loci_blocks, 1):
+        loci_block_sequence = get_block_sequence(loci_block, fasta)
+        loci_genbank = Bio.SeqRecord.SeqRecord(
+                seq=Bio.Seq.Seq(loci_block_sequence, Bio.Alphabet.IUPAC.unambiguous_dna),
+                name='locus_part_%s' % i,
+                id=fasta_fp.stem[:15])
+        for orf in loci_block.orfs:
+            # There should only ever be one hit per ORF here
+            database_name, [orf_hit] = list(orf.hits.items())[0]
+            # TODO: is there an appreciable difference if we construct a reverse hash map
+            for region, databases in database.SCHEME.items():
+                if database_name in databases:
+                    orf_region = region
+                    break
+            # Get appropriate representation of gene name
+            if region == 'two':
+                qualifiers = {'gene': orf_hit.sseqid}
+            else:
+                qualifiers = {'gene': database_name}
+            feature_location = Bio.SeqFeature.FeatureLocation(start=orf.start, end=orf.end)
+            feature = Bio.SeqFeature.SeqFeature(
+                    location=feature_location,
+                    type='CDS',
+                    qualifiers=qualifiers)
+            loci_genbank.features.append(feature)
+        genbank_records.append(loci_genbank)
+    return genbank_records
+
+
+def get_block_sequence(loci_block, contigs):
+    loci_contig_sequence = contigs[loci_block.contig]
+    start = loci_block.orfs[0].start
+    end = loci_block.orfs[-1].end
+    return loci_contig_sequence[start:end]

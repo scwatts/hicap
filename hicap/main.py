@@ -5,6 +5,9 @@ import tempfile
 import sys
 
 
+import Bio.SeqIO
+
+
 from . import annotation
 from . import arguments
 from . import database
@@ -56,27 +59,35 @@ def main():
     logging.info('Performing loci gene collation and seroptying')
     loci_blocks = database.characterise_loci(orfs_assigned)
 
+    # Create and write out genbank record
+    output_gbk_fp = pathlib.Path(args.output_dir, '%s.gbk' % args.query_fp.stem)
+    genbank_data = utility.create_genbank_record(loci_blocks, args.query_fp)
+    with output_gbk_fp.open('w') as fh:
+        Bio.SeqIO.write(genbank_data, fh, 'genbank')
+
     # Print results
+    output_summary_fp = pathlib.Path(args.output_dir, '%s.tsv' % args.query_fp.stem)
     serotypes = {s for lb in loci_blocks for s in lb.serotypes}
-    print('#', ','.join(serotypes), sep='')
-    for loci_block in loci_blocks:
-        genes = list()
-        for orf in loci_block.orfs:
-            # There should only ever be one hit per ORF here
-            database_name, [orf_hit] = list(orf.hits.items())[0]
-            # TODO: is there an appreciable difference if we construct a reverse hash map
-            for region, databases in database.SCHEME.items():
-                if database_name in databases:
-                    orf_region = region
-                    break
-            # Get appropriate representation of gene name
-            if region == 'two':
-                genes.append(orf_hit.sseqid)
-            else:
-                genes.append(database_name)
-        start = loci_block.orfs[0].start
-        end = loci_block.orfs[-1].end
-        print(loci_block.contig, start, end, ','.join(genes), sep='\t')
+    with output_summary_fp.open('w') as fh:
+        print('#', ','.join(serotypes), sep='', file=fh)
+        for loci_block in loci_blocks:
+            genes = list()
+            for orf in loci_block.orfs:
+                # There should only ever be one hit per ORF here
+                database_name, [orf_hit] = list(orf.hits.items())[0]
+                # TODO: is there an appreciable difference if we construct a reverse hash map
+                for region, databases in database.SCHEME.items():
+                    if database_name in databases:
+                        orf_region = region
+                        break
+                # Get appropriate representation of gene name
+                if region == 'two':
+                    genes.append(orf_hit.sseqid)
+                else:
+                    genes.append(database_name)
+            start = loci_block.orfs[0].start
+            end = loci_block.orfs[-1].end
+            print(loci_block.contig, start, end, ','.join(genes), sep='\t', file=fh)
 
 
 if __name__ == '__main__':

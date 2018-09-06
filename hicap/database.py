@@ -12,6 +12,14 @@ SCHEME = {
         }
 
 
+class Block():
+
+    def __init__(self, contig, orfs, serotypes):
+        self.contig = contig
+        self.orfs = orfs
+        self.serotypes = serotypes
+
+
 class Hits():
 
     def __init__(self, hits):
@@ -45,14 +53,6 @@ class Hits():
             if database in self.broken:
                 _assigned[database] += self.broken[database]
         return _assigned
-
-
-class Block():
-
-    def __init__(self, contig, orfs, serotypes):
-        self.contig = contig
-        self.orfs = orfs
-        self.serotypes = serotypes
 
 
 def search(query_fp, database_fps):
@@ -92,6 +92,9 @@ def discover_missing_genes(hits):
             counts[hit.sseqid] += 1
         except KeyError:
             counts[hit.sseqid] = 1
+
+    if len(counts.values()) < 1:
+        return dict()
 
     # Find missing
     expected_count = int(round(sum(counts.values()) / len(counts.values()), 0))
