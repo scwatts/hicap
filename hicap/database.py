@@ -39,7 +39,11 @@ class Hits():
         '''Create a dict for hits that pass filtering for complete or broken genes'''
         _assigned = dict()
         for database in (*self.complete, *self.broken):
-            _assigned[database] = self.complete[database] + self.broken[database]
+            _assigned[database] = list()
+            if database in self.complete:
+                _assigned[database] += self.complete[database]
+            if database in self.broken:
+                _assigned[database] += self.broken[database]
         return _assigned
 
 

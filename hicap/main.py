@@ -38,7 +38,8 @@ def main():
     # Find missing genes
     missing_genes = database.discover_missing_genes(hits.complete)
     if missing_genes:
-        hits.broken = database.filter_hits(hits.remaining, identity_min=args.broken_gene_identity, length_min=args.broken_gene_length)
+        db_missing = {db: hits for db, hits in hits.remaining.items() if db in missing_genes}
+        hits.broken = database.filter_hits(db_missing, identity_min=args.broken_gene_identity, length_min=args.broken_gene_length)
 
     # Assign hits to ORFs
     orfs_assigned = database.match_orfs_and_hits(hits.passed, orfs_all)
