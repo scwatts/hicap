@@ -95,11 +95,30 @@ def discover_missing_genes(hits):
 
     # Find missing
     expected_count = round(sum(counts.values()) / len(counts.values()), 0)
-    missing = set()
+    missing = dict()
     for gene in (*SCHEME['one'], *SCHEME['three']):
-        if gene not in counts or counts[gene] < expected_count:
-            missing.add(gene)
+        if gene not in counts:
+            missing[gene] = expected_count
+        elif counts[gene] < expected_count:
+            missing[gene] = expected_count  - counts[gene]
     return missing
+
+
+def select_best_hits(hits, gene_counts):
+    '''For a given dict of database hits, select n best hits
+
+    gene_counts is a dict of databases mapping to a count'''
+    hits_best = dict()
+    for database, database_hits in hits.items():
+        if database not in gene_counts:
+            continue
+        if len(database_hits) <= gene_counts[database]:
+            hits_best[database] = database_hits
+        else:
+            hits_sorted = sorted(database_hits, key=lambda h: h.evalue)
+            count = gene_counts[database]
+            hits_best[database] = hits_sorted[:count]
+    return hits_best
 
 
 def hit_region_sort(hits):

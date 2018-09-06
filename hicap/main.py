@@ -35,11 +35,11 @@ def main():
         logging.info('No hits to any cap locus gene found, exiting')
         sys.exit(0)
 
-    # Find missing genes
+    # Find missing genes - select the best hit for each missing gene
     missing_genes = database.discover_missing_genes(hits.complete)
     if missing_genes:
-        db_missing = {db: hits for db, hits in hits.remaining.items() if db in missing_genes}
-        hits.broken = database.filter_hits(db_missing, identity_min=args.broken_gene_identity, length_min=args.broken_gene_length)
+        hits.broken = database.filter_hits(hits.remaining, identity_min=args.broken_gene_identity, length_min=args.broken_gene_length)
+        hits.broken = database.select_best_hits(hits.broken, missing_genes)
 
     # Assign hits to ORFs
     orfs_assigned = database.match_orfs_and_hits(hits.passed, orfs_all)
