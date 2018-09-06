@@ -1,6 +1,5 @@
 import logging
 import pathlib
-import subprocess
 import tempfile
 import sys
 
@@ -47,7 +46,8 @@ def main():
     missing_genes = database.discover_missing_genes(hits.complete)
     if missing_genes:
         logging.info('Searching for %s missing genes', sum(count for count in missing_genes.values()))
-        hits.broken = database.filter_hits(hits.remaining, identity_min=args.broken_gene_identity, length_min=args.broken_gene_length)
+        hits.broken = database.filter_hits(hits.remaining, identity_min=args.broken_gene_identity,
+                                           length_min=args.broken_gene_length)
         hits.broken = database.select_best_hits(hits.broken, missing_genes)
         logging.info('Found %s missing genes', len([count for counts in hits.broken.values() for count in counts]))
 
@@ -78,7 +78,6 @@ def main():
                 # TODO: is there an appreciable difference if we construct a reverse hash map
                 for region, databases in database.SCHEME.items():
                     if database_name in databases:
-                        orf_region = region
                         break
                 # Get appropriate representation of gene name
                 if region == 'two':

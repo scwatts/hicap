@@ -113,7 +113,6 @@ def create_genbank_record(loci_blocks, fasta_fp):
             # TODO: is there an appreciable difference if we construct a reverse hash map
             for region, databases in database.SCHEME.items():
                 if database_name in databases:
-                    orf_region = region
                     break
             # Get appropriate representation of gene name
             if region == 'two':

@@ -18,27 +18,27 @@ def get_args():
     # TODO: need to work on generalising structure and naming of database
     database_dir = pathlib.Path(__file__).parent / 'database'
     parser_files.add_argument('--query_fp', required=True, type=pathlib.Path,
-            help='Input FASTA query')
+                              help='Input FASTA query')
     parser_files.add_argument('--output_dir', required=True, type=pathlib.Path,
-            help='Output directory')
+                              help='Output directory')
     parser_files.add_argument('--database_dir', required=False, type=pathlib.Path, default=database_dir,
-            help='Directory containing locus database. [default: %s]' % database_dir)
+                              help='Directory containing locus database. [default: %s]' % database_dir)
 
     # Parameters
     parser_params.add_argument('--gene_coverage', default=0.80, type=float,
-            help='Minimum percentage coverage to consider a single gene complete. [default: 0.80]')
+                               help='Minimum percentage coverage to consider a single gene complete. [default: 0.80]')
     parser_params.add_argument('--gene_identity', default=0.75, type=float,
-            help='Minimum percentage identity to consider a single gene complete. [default: 0.75]')
+                               help='Minimum percentage identity to consider a single gene complete. [default: 0.75]')
     parser_params.add_argument('--broken_gene_length', default=60, type=int,
-            help='Minimum length to consider a broken gene. [default: 60]')
+                               help='Minimum length to consider a broken gene. [default: 60]')
     parser_params.add_argument('--broken_gene_identity', default=0.90, type=float,
-            help='Minimum percentage identity to consider a broken gene. [default: 0.90]')
+                               help='Minimum percentage identity to consider a broken gene. [default: 0.90]')
 
     # Other
     parser_other.add_argument('--debug', action='store_const', dest='log_level', const=logging.DEBUG,
-            default=logging.INFO, help='Print debug messages')
+                              default=logging.INFO, help='Print debug messages')
     parser_other.add_argument('--log_fp', type=pathlib.Path,
-            help='Record logging messages to file')
+                              help='Record logging messages to file')
     parser_other.add_argument('--help_all', help='Display extended help')
 
     # Change behaviour of help display

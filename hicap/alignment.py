@@ -22,7 +22,7 @@ BlastFormat = {'qseqid': str,
                'gaps': int}
 
 
-class BlastResults():
+class BlastResults:
 
     def __init__(self, *values):
         for (attr, attr_type), value in zip(BlastFormat.items(), values):

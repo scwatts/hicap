@@ -12,7 +12,7 @@ SCHEME = {
         }
 
 
-class Block():
+class Block:
 
     def __init__(self, contig, orfs, serotypes):
         self.contig = contig
@@ -20,13 +20,12 @@ class Block():
         self.serotypes = serotypes
 
 
-class Hits():
+class Hits:
 
     def __init__(self, hits):
         self.all = hits
         self.complete = dict()
         self.broken = dict()
-
 
     @property
     def remaining(self):
@@ -40,7 +39,6 @@ class Hits():
                 assigned_hits.update(self.broken[database])
             _remaining[database] = [hit for hit in hits if hit not in assigned_hits]
         return _remaining
-
 
     @property
     def passed(self):
@@ -103,7 +101,7 @@ def discover_missing_genes(hits):
         if gene not in counts:
             missing[gene] = expected_count
         elif counts[gene] < expected_count:
-            missing[gene] = expected_count  - counts[gene]
+            missing[gene] = expected_count - counts[gene]
     return missing
 
 
@@ -174,8 +172,8 @@ def characterise_loci(orfs):
         # Sort ORFs by region and predict region two serotype
         region_orfs = orf_region_sort(group_orfs)
         region_two_types = list()
-        for neighbourhood in find_neighbours(region_orfs['two']):
-            rtwo_type = predict_region_two_type(region_orfs['two'])
+        for _, neighbourhood in find_neighbours(region_orfs['two']):
+            rtwo_type = predict_region_two_type(neighbourhood)
             region_two_types.append(rtwo_type)
         loci_blocks.append(Block(contig, group_orfs, region_two_types))
     return loci_blocks
@@ -219,7 +217,7 @@ def find_neighbours(orfs):
 
     groups = list()
     for contig, orfs in contig_orfs.items():
-        orfs_sorted = sorted(orfs, key=lambda orf: orf.start)
+        orfs_sorted = sorted(orfs, key=lambda k: k.start)
         group = [orfs_sorted.pop(0)]
         for orf in orfs_sorted:
             if (orf.start - group[-1].end) <= 500:
