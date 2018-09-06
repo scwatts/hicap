@@ -6,9 +6,9 @@ from . import alignment
 
 
 SCHEME = {
-        'one': ('bexA', 'bexB', 'bexC', 'bexD'),
-        'two': ('type_a', 'type_b', 'type_c', 'type_d', 'type_e', 'type_f'),
-        'three': ('hcsA', 'hcsB')
+        'one': {'bexA', 'bexB', 'bexC', 'bexD'},
+        'two': {'type_a', 'type_b', 'type_c', 'type_d', 'type_e', 'type_f'},
+        'three': {'hcsA', 'hcsB'}
         }
 
 
