@@ -94,7 +94,7 @@ def discover_missing_genes(hits):
             counts[hit.sseqid] = 1
 
     # Find missing
-    expected_count = round(sum(counts.values()) / len(counts.values()), 0)
+    expected_count = int(round(sum(counts.values()) / len(counts.values()), 0))
     missing = dict()
     for gene in (*SCHEME['one'], *SCHEME['three']):
         if gene not in counts:
