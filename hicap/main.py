@@ -38,11 +38,10 @@ def main():
     # Find missing genes
     missing_genes = database.discover_missing_genes(hits.complete)
     if missing_genes:
-        hits.update_remaining()
         hits.broken = database.filter_hits(hits.remaining, identity_min=args.broken_gene_identity, length_min=args.broken_gene_length)
 
     # Assign hits to ORFs
-    orfs_assigned = database.collect_missing_orfs(hits.complete + hits.broken, orfs_all)
+    orfs_assigned = database.match_orfs_and_hits(hits.passed, orfs_all)
 
     # Annotate loci and serotype
     for loci in database.characterise_loci(orfs_assigned):

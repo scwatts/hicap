@@ -101,14 +101,28 @@ def discover_missing_genes(hits):
 def hit_region_sort(hits):
     '''Sort hits into a dictionary by region'''
     region_hits = {region: list() for region in SCHEME}
-    for hit in hits:
+    for database, database_hits in hits.items():
         for region, names in SCHEME.items():
-            if any(name in hit.hits for name in names):
+            # TODO: does a set have an appreciable improvement?
+            if database in names:
                 try:
-                    region_hits[region].append(hit)
+                    region_hits[region].extend(database_hits)
                 except KeyError:
-                    region_hits[region] = [hit]
+                    region_hits[region] = database_hits
     return region_hits
+
+
+def orf_region_sort(orfs):
+    '''Sort ORFs into a dictionary by region'''
+    region_orfs = {region: list() for region in SCHEME}
+    for orf in orfs:
+        for region, names in SCHEME.items():
+            if any(name in orf.hits for name in names):
+                try:
+                    region_orfs[region].append(orf)
+                except KeyError:
+                    region_orfs[region] = [orf]
+    return region_orfs
 
 
 def match_orfs_and_hits(hits, orfs):
@@ -122,30 +136,7 @@ def match_orfs_and_hits(hits, orfs):
                 orfs[orf_index].hits[region].append(hit)
             except KeyError:
                 orfs[orf_index].hits[region] = [hit]
-
-    # Split ORFs - done here for clarity (multiple hits per ORF can occur above)
-    hits_remaining = dict()
-    for database, hits in hits_filtered.items():
-        if database in genes_missing:
-            hits_remaining[database] = [hit for hit in hits_all[database] if hit not in set(hits)]
     return [orfs[orf_index] for orf_index in orf_indices]
-
-
-def collect_missing_orfs(genes_missing, orfs, hits_all, hits_filtered, identity_min, length_min):
-    '''Find missing hits and assign to ORFs'''
-    # Get missing hits and assign to orfs
-    hits = filter_hits(hits_remaining, identity_min=identity_min, length_min=length_min)
-    orf_indices = set()
-    for database, hits in hits.items():
-        for hit in hits:
-            orf_index = int(hit.qseqid)
-            orf_indices.add(orf_index)
-            try:
-                orfs[orf_index].hits[database].append(hit)
-            except KeyError:
-                orfs[orf_index].hits[database] = [hit]
-            orfs[orf_index].broken = True
-    return [orfs[index] for index in orf_indices]
 
 
 def characterise_loci(orfs):
@@ -162,19 +153,6 @@ def characterise_loci(orfs):
             region_two_types.append(rtwo_type)
         loci.append(Locus(contig, group_orfs, region_two_types))
     return loci
-
-
-def orf_region_sort(orfs):
-    '''Sort ORFs into a dictionary by region'''
-    region_orfs = {region: list() for region in SCHEME}
-    for orf in orfs:
-        for region, names in SCHEME.items():
-            if any(name in orf.hits for name in names):
-                try:
-                    region_orfs[region].append(orf)
-                except KeyError:
-                    region_orfs[region] = [orf]
-    return region_orfs
 
 
 def predict_region_two_type(orfs):
