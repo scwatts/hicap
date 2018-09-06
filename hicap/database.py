@@ -51,9 +51,9 @@ def search(query_fp, database_fps):
 
 def filter_hits(hits, coverage_min=None, identity_min=None, length_min=None):
     '''Filter hits using provided thresholds'''
-    hits_filtered = {database: list() for database in hits_all}
-    for database, hits in hits_all.items():
-        for hit in hits:
+    hits_filtered = {database: list() for database in hits}
+    for database, database_hits in hits.items():
+        for hit in database_hits:
             if identity_min and hit.pident < identity_min:
                 continue
             if coverage_min and hit.length / hit.slen < coverage_min:
