@@ -49,10 +49,10 @@ class Hits():
 
 class Block():
 
-    def __init__(self, contig, orfs, serotype):
+    def __init__(self, contig, orfs, serotypes):
         self.contig = contig
         self.orfs = orfs
-        self.serotype = serotype
+        self.serotypes = serotypes
 
 
 def search(query_fp, database_fps):
