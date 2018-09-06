@@ -2,6 +2,7 @@ import logging
 import pathlib
 import subprocess
 import tempfile
+import sys
 
 
 from . import annotation
