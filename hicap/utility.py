@@ -79,16 +79,6 @@ def check_dependencies():
             logging.debug('Found %s version %s' % (dependency, version))
 
 
-def range_overlap_size(r1, r2):
-    sr, lr = sorted((r1, r2), key=lambda k: len(k))
-    if max(sr) in lr or min(sr) in lr:
-        lb = max(min(r) for r in (sr, lr))
-        ub = min(max(r) for r in (sr, lr))
-        return len(range(lb, ub))
-    else:
-        return 0
-
-
 def read_fasta(filepath):
     logging.info('Collecting nucleotide sequence')
     with filepath.open('r') as fh:
@@ -98,10 +88,3 @@ def read_fasta(filepath):
         logging.error('Could not parse any valid FASTA records from %s', filepath)
         sys.exit(1)
     return fasta
-
-
-def write_fasta(description, sequence, filepath):
-    with filepath.open('w') as fh:
-        print('>', description, sep='', file=fh)
-        for line in [sequence[i:i+80] for i in range(0, len(sequence), 80)]:
-            print(line, file=fh)
