@@ -15,18 +15,32 @@ SCHEME = {
 class Hits():
 
     def __init__(self, hits):
-        self.all = dict()
+        self.all = hits
         self.complete = dict()
         self.broken = dict()
-        self.remaining = dict()
 
 
-    def update_remaining(self):
-        '''Create or replace dict which contains hits which are unassigned'''
-        hits_lists_gen = (d.values() for d in (self.complete, self.broken))
-        assigned_hits = {hit for hits in hits_lists_gen for hit in hits}
+    @property
+    def remaining(self):
+        '''Create dict which contains hits which are unassigned'''
+        _remaining = dict()
         for database, hits in self.all.items():
-            self.remaining[database] = [hit for hit in hits if hit not in assigned_hits]
+            assigned_hits = set()
+            if database in self.complete:
+                assigned_hits.update(self.complete[database])
+            if database in self.broken:
+                assigned_hits.update(self.broken[database])
+            _remaining[database] = [hit for hit in hits if hit not in assigned_hits]
+        return _remaining
+
+
+    @property
+    def passed(self):
+        '''Create a dict for hits that pass filtering for complete or broken genes'''
+        _assigned = dict()
+        for database in (*self.complete, *self.broken):
+            _assigned[database] = self.complete[database] + self.broken[database]
+        return _assigned
 
 
 class Locus():
