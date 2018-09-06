@@ -12,6 +12,23 @@ SCHEME = {
         }
 
 
+class Hits():
+
+    def __init__(self, hits):
+        self.all = dict()
+        self.complete = dict()
+        self.broken = dict()
+        self.remaining = dict()
+
+
+    def update_remaining(self):
+        '''Create or replace dict which contains hits which are unassigned'''
+        hits_lists_gen = (d.values() for d in (self.complete, self.broken))
+        assigned_hits = {hit for hits in hits_lists_gen for hit in hits}
+        for database, hits in self.all.items():
+            self.remaining[database] = [hit for hit in hits if hit not in assigned_hits]
+
+
 class Locus():
 
     def __init__(self, contig, orfs, serotype):
@@ -23,16 +40,16 @@ class Locus():
 def search(query_fp, database_fps):
     '''Perform search via alignment of query sequences in provided database files'''
     logging.info('Searching database for matches')
-    hits = {database_fp.stem: list() for database_fp in database_fps}
+    hits_all = {database_fp.stem: list() for database_fp in database_fps}
     for database_fp in database_fps:
         with tempfile.TemporaryDirectory() as dh:
             blast_database_fp = alignment.create_blast_database(database_fp, dh)
             blast_stdout = alignment.align(query_fp, blast_database_fp)
-            hits[database_fp.stem] = alignment.parse_blast_stdout(blast_stdout)
-    return hits
+            hits_all[database_fp.stem] = alignment.parse_blast_stdout(blast_stdout)
+    return Hits(hits_all)
 
 
-def filter_hits(hits_all, coverage_min=None, identity_min=None, length_min=None):
+def filter_hits(hits, coverage_min=None, identity_min=None, length_min=None):
     '''Filter hits using provided thresholds'''
     hits_filtered = {database: list() for database in hits_all}
     for database, hits in hits_all.items():
@@ -45,6 +62,76 @@ def filter_hits(hits_all, coverage_min=None, identity_min=None, length_min=None)
                 continue
             hits_filtered[database].append(hit)
     return hits_filtered
+
+
+def discover_missing_genes(hits):
+    '''Find the names of missing genes'''
+    # Count hit names
+    region_hits = hit_region_sort(hits)
+    counts = dict()
+    for hit in (*region_hits['one'], *region_hits['three']):
+        try:
+            counts[hit.sseqid] += 1
+        except KeyError:
+            counts[hit.sseqid] = 1
+
+    # Find missing
+    expected_count = round(sum(counts.values()) / len(counts.values()), 0)
+    missing = set()
+    for gene in (*SCHEME['one'], *SCHEME['three']):
+        if gene not in counts or counts[gene] < expected_count:
+            missing.add(gene)
+    return missing
+
+
+def hit_region_sort(hits):
+    '''Sort hits into a dictionary by region'''
+    region_hits = {region: list() for region in SCHEME}
+    for hit in hits:
+        for region, names in SCHEME.items():
+            if any(name in hit.hits for name in names):
+                try:
+                    region_hits[region].append(hit)
+                except KeyError:
+                    region_hits[region] = [hit]
+    return region_hits
+
+
+def match_orfs_and_hits(hits, orfs):
+    # Add hit information to ORFs
+    orf_indices = set()
+    for region, hits in hits.items():
+        for hit in hits:
+            orf_index = int(hit.qseqid)
+            orf_indices.add(orf_index)
+            try:
+                orfs[orf_index].hits[region].append(hit)
+            except KeyError:
+                orfs[orf_index].hits[region] = [hit]
+
+    # Split ORFs - done here for clarity (multiple hits per ORF can occur above)
+    hits_remaining = dict()
+    for database, hits in hits_filtered.items():
+        if database in genes_missing:
+            hits_remaining[database] = [hit for hit in hits_all[database] if hit not in set(hits)]
+    return [orfs[orf_index] for orf_index in orf_indices]
+
+
+def collect_missing_orfs(genes_missing, orfs, hits_all, hits_filtered, identity_min, length_min):
+    '''Find missing hits and assign to ORFs'''
+    # Get missing hits and assign to orfs
+    hits = filter_hits(hits_remaining, identity_min=identity_min, length_min=length_min)
+    orf_indices = set()
+    for database, hits in hits.items():
+        for hit in hits:
+            orf_index = int(hit.qseqid)
+            orf_indices.add(orf_index)
+            try:
+                orfs[orf_index].hits[database].append(hit)
+            except KeyError:
+                orfs[orf_index].hits[database] = [hit]
+            orfs[orf_index].broken = True
+    return [orfs[index] for index in orf_indices]
 
 
 def characterise_loci(orfs):
@@ -61,50 +148,6 @@ def characterise_loci(orfs):
             region_two_types.append(rtwo_type)
         loci.append(Locus(contig, group_orfs, region_two_types))
     return loci
-
-
-def discover_missing_genes(orfs):
-    '''Find the names of missing genes'''
-    # Count hit names
-    region_orfs = orf_region_sort(orfs)
-    counts = dict()
-    for orf in (*region_orfs['one'], *region_orfs['three']):
-        for hit in orf.hits:
-            try:
-                counts[hit] += 1
-            except KeyError:
-                counts[hit] = 1
-
-    # Find missing
-    expected_count = round(sum(counts.values()) / len(counts.values()), 0)
-    missing = set()
-    for gene in (*SCHEME['one'], *SCHEME['three']):
-        if gene not in counts or counts[gene] < expected_count:
-            missing.add(gene)
-    return missing
-
-
-def collect_missing_orfs(genes_missing, orfs, hits_all, hits_filtered, identity_min, length_min):
-    '''Find missing hits and assign to ORFs'''
-    # Copy only hits that have not been previously assigned into a new dictionary
-    hits_remaining = dict()
-    for database, hits in hits_filtered.items():
-        if database in genes_missing:
-            hits_remaining[database] = [hit for hit in hits_all[database] if hit not in set(hits)]
-
-    # Get missing hits and assign to orfs
-    hits = filter_hits(hits_remaining, identity_min=identity_min, length_min=length_min)
-    orf_indices = set()
-    for database, hits in hits.items():
-        for hit in hits:
-            orf_index = int(hit.qseqid)
-            orf_indices.add(orf_index)
-            try:
-                orfs[orf_index].hits[database].append(hit)
-            except KeyError:
-                orfs[orf_index].hits[database] = [hit]
-            orfs[orf_index].broken = True
-    return [orfs[index] for index in orf_indices]
 
 
 def orf_region_sort(orfs):
