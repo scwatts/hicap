@@ -33,7 +33,7 @@ def main():
 
     # Find complete genes
     hits.complete = database.filter_hits(hits.all, coverage_min=args.gene_coverage, identity_min=args.gene_identity)
-    if not hits.complete:
+    if not sum(len(database_hits) for database_hits in hits.complete.values()):
         logging.info('No hits to any cap locus gene found, exiting')
         sys.exit(0)
     else:
