@@ -98,28 +98,24 @@ def read_fasta(filepath):
 
 
 def create_genbank_record(loci_blocks, fasta_fp):
+    '''Construct a Genbank record from loci_blocks'''
     logging.info('Creating genbank records')
+    sequence_margin = 1000
     genbank_records = list()
     fasta = read_fasta(fasta_fp)
     for i, loci_block in enumerate(loci_blocks, 1):
-        loci_block_sequence = get_block_sequence(loci_block, fasta)
+        position_delta, loci_block_sequence = get_block_sequence(loci_block, fasta, sequence_margin)
         loci_genbank = Bio.SeqRecord.SeqRecord(
                 seq=Bio.Seq.Seq(loci_block_sequence, Bio.Alphabet.IUPAC.unambiguous_dna),
                 name='locus_part_%s' % i,
                 id=fasta_fp.stem[:15])
         for orf in loci_block.orfs:
-            # There should only ever be one hit per ORF here
-            database_name, [orf_hit] = list(orf.hits.items())[0]
-            # TODO: is there an appreciable difference if we construct a reverse hash map
-            for region, databases in database.SCHEME.items():
-                if database_name in databases:
-                    break
             # Get appropriate representation of gene name
-            if region == 'two':
-                qualifiers = {'gene': orf_hit.sseqid}
-            else:
-                qualifiers = {'gene': database_name}
-            feature_location = Bio.SeqFeature.FeatureLocation(start=orf.start, end=orf.end)
+            name, orf_hit = get_orf_hit_and_name(orf)
+            qualifiers = {'gene': name}
+            feature_start = orf.start - position_delta
+            feature_end = orf.end - position_delta
+            feature_location = Bio.SeqFeature.FeatureLocation(start=feature_start, end=feature_end)
             feature = Bio.SeqFeature.SeqFeature(
                     location=feature_location,
                     type='CDS',
@@ -129,8 +125,42 @@ def create_genbank_record(loci_blocks, fasta_fp):
     return genbank_records
 
 
-def get_block_sequence(loci_block, contigs):
-    loci_contig_sequence = contigs[loci_block.contig]
-    start = loci_block.orfs[0].start
-    end = loci_block.orfs[-1].end
-    return loci_contig_sequence[start:end]
+def write_summary_data(loci_blocks, output_fp):
+    serotypes = {s for lb in loci_blocks for s in lb.serotypes}
+    with output_fp.open('w') as fh:
+        print('#', ','.join(serotypes), sep='', file=fh)
+        for loci_block in loci_blocks:
+            genes = list()
+            for orf in loci_block.orfs:
+                # Get appropriate representation of gene name
+                name, orf_hit = get_orf_hit_and_name(orf)
+                genes.append(name)
+            start = loci_block.orfs[0].start
+            end = loci_block.orfs[-1].end
+            print(loci_block.contig, start, end, ','.join(genes), sep='\t', file=fh)
+
+
+def get_orf_hit_and_name(orf):
+    '''Collect the first ORF hit and appropriate name'''
+    # There should only ever be one hit per ORF here
+    database_name, [orf_hit] = list(orf.hits.items())[0]
+    # TODO: is there an appreciable difference if we construct a reverse hash map
+    for region, databases in database.SCHEME.items():
+        if database_name in databases:
+            break
+    name = orf_hit.sseqid if region == 'two' else database_name
+    return name, orf_hit
+
+
+def get_block_sequence(loci_block, contigs, margin):
+    '''Extract sequence for loci with margin on either side'''
+    loci_contig = contigs[loci_block.contig]
+    orf_start = loci_block.orfs[0].start
+    orf_end = loci_block.orfs[-1].end
+
+    # Calculate start end position for sequence with margin
+    loci_start = orf_start - margin if orf_start >= margin else 0
+    loci_end = orf_end + margin if (orf_end + margin) <= len(loci_contig) else len(loci_contig)
+
+    # Return delta in position and sequence with margin
+    return loci_start, loci_contig[loci_start:loci_end]
