@@ -194,6 +194,7 @@ def predict_region_two_type(orfs):
             counts[hit] = 1
 
     # Select the best represented and remove competing hits from ORFs
+    # TODO: provide additional information - parital, w and wo borked genes, complete
     rtwo_type = max(counts, key=lambda k: counts[k])
     for orf in orfs:
         if len(orf.hits) > 1 and rtwo_type in orf.hits:

@@ -42,7 +42,11 @@ def main():
             hit_quant = 'hits' if len(database_hits) > 1 else 'hit'
             logging.info(message, len(database_hits), hit_quant, database_name)
 
+    # TODO: continuity check - accept gene groups within physical proximity. this may involve
+    # inspect of gene distance from contig boundaries
+
     # Find missing genes - select the best hit for each missing gene
+    # TODO: extend search for borked genes to region two
     missing_genes = database.discover_missing_genes(hits.complete)
     if missing_genes:
         logging.info('Searching for %s missing genes', sum(count for count in missing_genes.values()))
