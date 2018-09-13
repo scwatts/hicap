@@ -27,8 +27,8 @@ class BlastResults:
     def __init__(self, *values):
         for (attr, attr_type), value in zip(BlastFormat.items(), values):
             setattr(self, attr, attr_type(value))
-        self.orf_start = None
-        self.orf_end = None
+        self.region = None
+        self.orf = None
         self.broken = False
 
 

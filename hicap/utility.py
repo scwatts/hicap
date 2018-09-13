@@ -87,7 +87,6 @@ def check_dependencies():
 
 
 def read_fasta(filepath):
-    logging.info('Collecting nucleotide sequence')
     with filepath.open('r') as fh:
         # TODO: cleaner way to do this?
         fasta = {desc: seq for desc, seq in Bio.SeqIO.FastaIO.SimpleFastaParser(fh)}
@@ -95,6 +94,10 @@ def read_fasta(filepath):
         logging.error('Could not parse any valid FASTA records from %s', filepath)
         sys.exit(1)
     return fasta
+
+
+def get_contig_sizes(filepath):
+    return {desc: len(seq) for desc, seq in read_fasta(filepath).items()}
 
 
 def create_genbank_record(loci_blocks, fasta_fp):

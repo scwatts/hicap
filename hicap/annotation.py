@@ -18,8 +18,8 @@ class Orf:
         self.strand = strand
 
         self.sequence = str()
-        self.hits = dict()
-        self.broken = False
+        self.hits = set()
+        self.near_boundary = False
 
 
 def collect_orfs(fasta_fp):
