@@ -51,7 +51,7 @@ def main():
     all_region_hits = locus.region_sort_hits(hits_complete)
     filter_params = {'identity_min': args.broken_gene_identity, 'length_min': args.broken_gene_length}
     for region, region_hits in all_region_hits.items():
-        region_clusters = locus.discover_region_clusters(region_hits, hits_remaining, region, contig_sizes, filter_params)
+        region_clusters = locus.discover_region_clusters(region_hits, hits_remaining, region, filter_params)
         clusters.extend(region_clusters)
 
     for group in clusters:
