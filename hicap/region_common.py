@@ -4,8 +4,13 @@ from . import locus
 
 def discover_clusters(hits_complete, hits_remaining, region, contig_sizes, filter_params):
     hits_selected = select_best_genes(hits_complete)
-    hits_broken = discover_missing_genes(hits_selected, hits_remaining, region, filter_params)
-    return hits_selected | hits_broken
+    missing = database.SCHEME[region] - {hit.sseqid for hit in hits}
+    if missing:
+        all_contig_hits = locus.sort_hits_by_contig(hits_complete)
+        for contig_hits in contig_hits:
+            hits_broken = discover_missing_genes(hits_selected, hits_remaining, region, filter_params)
+            hits_selected |= hits_broken
+    return hits_selected
 
 
 def select_best_genes(hits):
@@ -21,12 +26,11 @@ def select_best_genes(hits):
 
 def discover_missing_genes(hits, hits_remaining, region, filter_params):
     '''Count missing genes and return any broken hits for region one and three'''
-    missing = database.SCHEME[region] - {hit.sseqid for hit in hits}
     if not missing:
         return set()
     hits_filtered = database.filter_hits(hits_remaining, **filter_params)
     hits_proximal = locus.find_proximal_hits(hits, hits_filtered, 10000)
-    hits_broken_all = {hit for hit in hits_proximal if hit.sseqid in database.SCHEME[region]}
+    hits_broken_all = {hit for hit in hits_proximal if hit.sseqid in missing}
     broken_hits = select_best_genes(hits_broken_all)
     for hit in broken_hits:
         hit.broken = True

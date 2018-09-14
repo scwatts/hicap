@@ -10,9 +10,13 @@ class Group:
         self.serotypes = serotypes
         self.contigs = contigs
 
-        hits_sorted = sorted(self.hits, key=lambda h: h.orf.start)
-        self.start = hits_sorted[0].orf.start
-        self.end = hits_sorted[-1].orf.end
+        if len(self.contigs) <= 1:
+            hits_sorted = sorted(self.hits, key=lambda h: h.orf.start)
+            self.start = hits_sorted[0].orf.start
+            self.end = hits_sorted[-1].orf.end
+        else:
+            self.start = None
+            self.end = None
 
         self.near_boundary = False
 
@@ -54,19 +58,18 @@ def get_gene_region(gene_name):
 
 def discover_region_clusters(hits_complete, hits_remaining, region, contig_sizes, filter_params):
     groups = list()
-    neighbour_hits = find_neighbours(hits_complete, 1000)
-    for contig, hits_list in sorted(neighbour_hits, key=lambda k: len(k[1])):
+    neighbour_hits = find_neighbours(hits_complete, 5000)
+    for contig, hits_list in sorted(neighbour_hits, key=lambda k: len(k[1]), reverse=True):
         hits = set(hits_list)
         if region in {'one', 'three'}:
-            hits_final = region_common.discover_clusters(hits_complete, hits_remaining, region, contig_sizes, filter_params)
+            hits_final = region_common.discover_clusters(hits, hits_remaining, region, contig_sizes, filter_params)
+            serotype = set()
         else:
-            # TODO: temp
-            continue
-            hits_final = region_specific.discover_clusters(hits_complete, hits_remaining, contig_sizes, filter_params)
+            hits_final, serotype = region_specific.discover_clusters(hits, hits_remaining, contig_sizes, filter_params)
         hits_remaining ^= hits_final
         # TODO: generalise argument passing
         contigs = {hit.orf.contig for hit in hits_final}
-        groups.append(Group(hits_final, contigs=contigs))
+        groups.append(Group(hits_final, serotypes=serotype, contigs=contigs))
     # Link overlapping regions together
     groups = harmonise_groups(groups)
     return remove_singletons(groups, contig_sizes)
@@ -87,7 +90,7 @@ def find_neighbours(hits, distance):
         hits_sorted = sorted(hits, key=lambda k: k.orf.start)
         group = [hits_sorted.pop(0)]
         for hit in hits_sorted:
-            if (hit.orf.start - group[-1].orf.end) <= 500:
+            if (hit.orf.start - group[-1].orf.end) <= distance:
                 group.append(hit)
             else:
                 groups.append((contig, group))
@@ -104,6 +107,16 @@ def sort_hits_by_orf(hits):
         except KeyError:
             orfs_hits[hit.orf] = {hit}
     return orfs_hits
+
+
+def sort_hits_by_contig(hits):
+    contigs_hits = dict()
+    for hit in hits:
+        try:
+            contigs_hits[hit.orf.contig].add(hit)
+        except KeyError:
+            contigs_hits[hit.orf.contig] = {hit}
+    return contigs_hits
 
 
 def find_proximal_hits(hits, hits_filtered, distance):
@@ -160,16 +173,6 @@ def harmonise_groups(groups):
 
 
 def remove_singletons(groups, contig_sizes):
-    # TODO: we won't have to check for contigs, they'll be merged into a single group
-    # Check if loci may be split across contigs
-    for group in groups:
-        for contig in group.contigs:
-            # We have code that is so W I D E
-            near_boundary = near_contig_boundary(group.start, group.end, group.contigs.pop(), contig_sizes, 1000)
-            if near_boundary:
-                group.near_boundary = True
-                break
-
     # Allow singletons if there's at least two groups near contig boundaries and be one itself
     allow_singletons = sum(g.near_boundary for g in groups) > 1
     groups_final = set()
