@@ -18,7 +18,6 @@ class Orf:
         self.strand = strand
 
         self.sequence = str()
-        self.hits = set()
         self.near_boundary = False
 
 
