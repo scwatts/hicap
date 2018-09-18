@@ -48,6 +48,49 @@ def discover_region_clusters(hits_complete, hits_remaining, region, filter_param
         return region_specific.discover_clusters(hits_complete, hits_remaining, filter_params)
 
 
+def locate_fragmented_region_two(groups, hits_remaining, filter_params):
+    # Collect all possible hits for region two
+    genes_rtwo_all = {gene for genes in database.SEROTYPES.values() for gene in genes}
+    hits_rtwo_all = {hit for hit in hits_remaining if hit.sseqid in genes_rtwo_all}
+    hits_rtwo_filtered = database.filter_hits(hits_rtwo_all, **filter_params)
+    if not hits_rtwo_filtered:
+        return Group({})
+
+    # Hits upstream and downstream of region one and three
+    distance = 5000
+    hits_candidate = set()
+    for region in ('one', 'three'):
+        for contig, contig_hits in sort_hits_by_contig(groups[region].hits).items():
+            hits_sorted = sorted(contig_hits, key=lambda k: k.orf.start)
+            start = min(hits_sorted[0].orf.start, hits_sorted[0].orf.end)
+            end = max(hits_sorted[-1].orf.start, hits_sorted[-1].orf.end)
+            hits_candidate |= collect_hits_in_bounds(start, end, contig, distance, hits_rtwo_filtered)
+
+    # Select best hits and set them to broken
+    hits_remaining -= hits_candidate
+    group = region_specific.discover_clusters(hits_candidate, hits_remaining, filter_params)
+    for hit in group.hits:
+        hit.broken = True
+    return group
+
+
+def collect_hits_in_bounds(start, end, contig, distance, hits):
+    # TODO: optimise if required
+    hits_selected = set()
+    bounds = ((start - distance, start), (end, end + distance))
+    for hit in hits:
+        if hit.orf.contig != contig:
+            continue
+        hit_start = min(hit.orf.start, hit.orf.end)
+        hit_end = max(hit.orf.start, hit.orf.end)
+        for bound_start, bound_end in bounds:
+            if  hit_start >= bound_start and hit_start <= bound_end:
+                hits_selected.add(hit)
+            elif  hit_end >= bound_start and hit_end <= bound_end:
+                hits_selected.add(hit)
+    return hits_selected
+
+
 def sort_hits_by_orf(hits):
     orfs_hits = dict()
     for hit in hits:
@@ -56,3 +99,13 @@ def sort_hits_by_orf(hits):
         except KeyError:
             orfs_hits[hit.orf] = {hit}
     return orfs_hits
+
+
+def sort_hits_by_contig(hits):
+    contigs_hits = dict()
+    for hit in hits:
+        try:
+            contigs_hits[hit.orf.contig].add(hit)
+        except KeyError:
+            contigs_hits[hit.orf.contig] = {hit}
+    return contigs_hits

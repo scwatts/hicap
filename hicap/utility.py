@@ -16,6 +16,9 @@ import Bio.SeqIO.FastaIO
 from . import database
 
 
+SEQ_PADDING = 1000
+
+
 def initialise_logging(log_level, log_file):
     log_handles = list()
     log_handles.append(logging.StreamHandler())
@@ -99,11 +102,10 @@ def read_fasta(filepath):
 def create_genbank_record(loci_blocks, fasta_fp):
     '''Construct a Genbank record from loci_blocks'''
     logging.info('Creating genbank records')
-    sequence_margin = 1000
     genbank_records = list()
     fasta = read_fasta(fasta_fp)
     for i, loci_block in enumerate(loci_blocks, 1):
-        position_delta, loci_block_sequence = get_block_sequence(loci_block, fasta, sequence_margin)
+        position_delta, loci_block_sequence = get_block_sequence(loci_block, fasta, SEQ_PADDING)
         loci_genbank = Bio.SeqRecord.SeqRecord(
                 seq=Bio.Seq.Seq(loci_block_sequence, Bio.Alphabet.IUPAC.unambiguous_dna),
                 name='locus_part_%s' % i,

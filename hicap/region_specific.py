@@ -2,9 +2,12 @@ from . import database
 from . import locus
 
 
+NEIGHBOUR_DIST = 5000
+
+
 def discover_clusters(hits_complete, hits_remaining, filter_params):
     # Find best hits, determine missing genes, find missing genes, and select best
-    hits_selected, serotypes = select_best_genes(hits_complete, 5000)
+    hits_selected, serotypes = select_best_genes(hits_complete, NEIGHBOUR_DIST)
     genes_expected = {gene for serotype in serotypes for gene in database.SEROTYPES[serotype]}
     genes_missing = genes_expected - {hit.sseqid for hit in hits_complete}
     hits_filtered = database.filter_hits(hits_remaining, **filter_params)
@@ -13,7 +16,7 @@ def discover_clusters(hits_complete, hits_remaining, filter_params):
         for hit in hits_missing:
             hit.broken = True
         hits_candidate = hits_selected | hits_missing
-        hits_selected, serotypes = select_best_genes(hits_candidate, 5000)
+        hits_selected, serotypes = select_best_genes(hits_candidate, NEIGHBOUR_DIST)
 
     # Create and return locus.Group
     hits_remaining -= hits_selected
