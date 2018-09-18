@@ -22,16 +22,6 @@ class Group:
             self.end = None
 
 
-def region_sort_hits(hits):
-    '''Sort hits into a dictionary by region'''
-    region_hits = {region: list() for region in database.SCHEME}
-    for hit in hits:
-        if not hit.region:
-            hit.region = get_gene_region(hit.sseqid)
-        region_hits[hit.region].append(hit)
-    return region_hits
-
-
 def get_gene_region(gene_name):
     '''Determine region a gene belongs to given the gene name'''
     for region, region_genes in database.SCHEME.items():
@@ -119,9 +109,9 @@ def collect_hits_in_bounds(start, end, contig, distance, hits):
         hit_start = min(hit.orf.start, hit.orf.end)
         hit_end = max(hit.orf.start, hit.orf.end)
         for bound_start, bound_end in bounds:
-            if  hit_start >= bound_start and hit_start <= bound_end:
+            if bound_start <= hit_start <= bound_end:
                 hits_selected.add(hit)
-            elif  hit_end >= bound_start and hit_end <= bound_end:
+            elif bound_start <= hit_end <= bound_end:
                 hits_selected.add(hit)
     return hits_selected
 
@@ -144,3 +134,12 @@ def sort_hits_by_contig(hits):
         except KeyError:
             contigs_hits[hit.orf.contig] = {hit}
     return contigs_hits
+
+
+def sort_hits_by_region(hits):
+    region_hits = {region: list() for region in database.SCHEME}
+    for hit in hits:
+        if not hit.region:
+            hit.region = get_gene_region(hit.sseqid)
+        region_hits[hit.region].append(hit)
+    return region_hits

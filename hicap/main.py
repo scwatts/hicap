@@ -8,6 +8,7 @@ from . import annotation
 from . import arguments
 from . import database
 from . import locus
+from . import report
 from . import utility
 
 
@@ -38,11 +39,12 @@ def main():
     if not hits_complete:
         logging.info('No hits to any cap locus gene found, exiting')
         sys.exit(0)
+    utility.log_search_hits_found(hits_complete)
 
-    # TODO: print some info here wrt complete hits
     region_groups = dict()
-    all_region_hits = locus.region_sort_hits(hits_complete)
+    all_region_hits = locus.sort_hits_by_region(hits_complete)
     filter_params = {'identity_min': args.broken_gene_identity, 'length_min': args.broken_gene_length}
+    logging.info('Discovering loci region clusters')
     for region, region_hits in all_region_hits.items():
         group = locus.discover_region_clusters(region_hits, hits_remaining, region, filter_params)
         region_groups[region] = group
@@ -52,9 +54,5 @@ def main():
         group = locus.locate_fragmented_region_two(region_groups, hits_remaining, filter_params)
         region_groups['two'] = group
 
-    # Create genbank record, report, and summary
-    for group in region_groups.values():
-        print(group)
-        hits_sorted = sorted(group.hits, key=lambda k: k.orf.start)
-        for hit in hits_sorted:
-            print(hit.sseqid, hit.orf.start, hit.orf.end, hit.orf.contig, hit.broken, sep='\t')
+    # Generate output data and files
+    report.create_report(region_groups, args.query_fp, args.query_fp.stem, args.output_dir)

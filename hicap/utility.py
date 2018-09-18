@@ -6,17 +6,11 @@ import subprocess
 import sys
 
 
-import Bio.Alphabet
-import Bio.Seq
-import Bio.SeqRecord
-import Bio.SeqFeature
 import Bio.SeqIO.FastaIO
 
 
 from . import database
-
-
-SEQ_PADDING = 1000
+from . import locus
 
 
 def initialise_logging(log_level, log_file):
@@ -99,69 +93,19 @@ def read_fasta(filepath):
     return fasta
 
 
-def create_genbank_record(loci_blocks, fasta_fp):
-    '''Construct a Genbank record from loci_blocks'''
-    logging.info('Creating genbank records')
-    genbank_records = list()
-    fasta = read_fasta(fasta_fp)
-    for i, loci_block in enumerate(loci_blocks, 1):
-        position_delta, loci_block_sequence = get_block_sequence(loci_block, fasta, SEQ_PADDING)
-        loci_genbank = Bio.SeqRecord.SeqRecord(
-                seq=Bio.Seq.Seq(loci_block_sequence, Bio.Alphabet.IUPAC.unambiguous_dna),
-                name='locus_part_%s' % i,
-                id=fasta_fp.stem[:15])
-        for orf in loci_block.orfs:
-            # Get appropriate representation of gene name
-            name, orf_hit = get_orf_hit_and_name(orf)
-            qualifiers = {'gene': name}
-            feature_start = orf.start - position_delta
-            feature_end = orf.end - position_delta
-            feature_location = Bio.SeqFeature.FeatureLocation(start=feature_start, end=feature_end)
-            feature = Bio.SeqFeature.SeqFeature(
-                    location=feature_location,
-                    type='CDS',
-                    qualifiers=qualifiers)
-            loci_genbank.features.append(feature)
-        genbank_records.append(loci_genbank)
-    return genbank_records
-
-
-def write_summary_data(loci_blocks, output_fp):
-    serotypes = {s for lb in loci_blocks for s in lb.serotypes}
-    with output_fp.open('w') as fh:
-        print('#', ','.join(serotypes), sep='', file=fh)
-        for loci_block in loci_blocks:
-            genes = list()
-            for orf in loci_block.orfs:
-                # Get appropriate representation of gene name
-                name, orf_hit = get_orf_hit_and_name(orf)
-                genes.append(name)
-            start = loci_block.orfs[0].start
-            end = loci_block.orfs[-1].end
-            print(loci_block.contig, start, end, ','.join(genes), sep='\t', file=fh)
-
-
-def get_orf_hit_and_name(orf):
-    '''Collect the first ORF hit and appropriate name'''
-    # There should only ever be one hit per ORF here
-    database_name, [orf_hit] = list(orf.hits.items())[0]
-    # TODO: is there an appreciable difference if we construct a reverse hash map
-    for region, databases in database.SCHEME.items():
-        if database_name in databases:
-            break
-    name = orf_hit.sseqid if region == 'two' else database_name
-    return name, orf_hit
-
-
-def get_block_sequence(loci_block, contigs, margin):
-    '''Extract sequence for loci with margin on either side'''
-    loci_contig = contigs[loci_block.contig]
-    orf_start = loci_block.orfs[0].start
-    orf_end = loci_block.orfs[-1].end
-
-    # Calculate start end position for sequence with margin
-    loci_start = orf_start - margin if orf_start >= margin else 0
-    loci_end = orf_end + margin if (orf_end + margin) <= len(loci_contig) else len(loci_contig)
-
-    # Return delta in position and sequence with margin
-    return loci_start, loci_contig[loci_start:loci_end]
+def log_search_hits_found(hits):
+    database_hits = dict()
+    for region, region_hits in locus.sort_hits_by_region(hits).items():
+        for hit in region_hits:
+            if region == 'two':
+                dbname = database.get_serotype_group(hit.sseqid)
+            else:
+                dbname = hit.sseqid
+            if dbname not in database_hits:
+                database_hits[dbname] = 1
+            else:
+                database_hits[dbname] += 1
+    for dbname, hit_count in database_hits.items():
+        message = 'Found %s %s for %s'
+        hit_quant = 'hits' if hit_count > 1 else 'hit'
+        logging.info(message, hit_count, hit_quant, dbname)
