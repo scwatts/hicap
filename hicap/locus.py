@@ -5,7 +5,7 @@ from . import region_specific
 
 class Group:
 
-    def __init__(self, hits, serotypes=set(), contigs=set()):
+    def __init__(self, hits, *, serotypes=None, contigs=None):
         self.hits = hits
         self.serotypes = serotypes
         self.contigs = contigs
@@ -17,31 +17,6 @@ class Group:
         else:
             self.start = None
             self.end = None
-
-        self.near_boundary = False
-
-
-def merge_group(group_1, group_2):
-    hits = group_1.hits | group_2.hits
-    contigs = group_1.contigs | group_2.contigs
-    serotypes = group_1.serotypes | group_2.serotypes
-
-    group_merged = Group(hits, serotypes=serotypes, contigs=contigs)
-    group_merged.near_boundary = group_1.near_boundary | group_2.near_boundary
-    return group_merged
-
-
-def identify_orfs_near_boundaries(orfs, contig_sizes, distance):
-    for orf in orfs:
-        if orf.start <= distance:
-            orf.near_boundary = True
-        elif orf.end >= (contig_sizes[orf.contig] - distance):
-            orf.near_boundary = True
-    return orfs
-
-
-def near_contig_boundary(start, end, contig, contig_sizes, distance):
-    return (start - distance) <= 0 or (contig_sizes[contig] - end) <= distance
 
 
 def region_sort_hits(hits):
@@ -81,13 +56,3 @@ def sort_hits_by_orf(hits):
         except KeyError:
             orfs_hits[hit.orf] = {hit}
     return orfs_hits
-
-
-def sort_hits_by_contig(hits):
-    contigs_hits = dict()
-    for hit in hits:
-        try:
-            contigs_hits[hit.orf.contig].add(hit)
-        except KeyError:
-            contigs_hits[hit.orf.contig] = {hit}
-    return contigs_hits

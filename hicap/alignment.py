@@ -1,5 +1,5 @@
-import pathlib
 import logging
+import pathlib
 
 
 from . import utility

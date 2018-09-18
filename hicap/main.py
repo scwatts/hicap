@@ -4,9 +4,6 @@ import tempfile
 import sys
 
 
-import Bio.SeqIO
-
-
 from . import annotation
 from . import arguments
 from . import database
@@ -34,10 +31,6 @@ def main():
 
     # Set the respective ORF for each hit and get contig sizes
     hits = database.assign_hit_orfs(hits, orfs_all)
-    contig_sizes = utility.get_contig_sizes(args.query_fp)
-
-    # Identify with ORFs are near contig bounds. Explicit assignment for clarity
-    orfs_all = locus.identify_orfs_near_boundaries(orfs_all, contig_sizes, 1000)
 
     # Find complete hits
     hits_complete = database.filter_hits(hits, coverage_min=args.gene_coverage, identity_min=args.gene_identity)

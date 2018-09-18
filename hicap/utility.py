@@ -96,10 +96,6 @@ def read_fasta(filepath):
     return fasta
 
 
-def get_contig_sizes(filepath):
-    return {desc: len(seq) for desc, seq in read_fasta(filepath).items()}
-
-
 def create_genbank_record(loci_blocks, fasta_fp):
     '''Construct a Genbank record from loci_blocks'''
     logging.info('Creating genbank records')

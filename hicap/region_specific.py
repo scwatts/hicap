@@ -30,7 +30,7 @@ def select_best_genes(hits, distance):
         # Get most frequent serotype hit within +/-5 kb of this orf
         start = orf.start - distance
         end = orf.end + distance
-        neighbourhood_hits = collect_neighbourhood_hits(start, end, orf.contig, distance, orfs_hits)
+        neighbourhood_hits = collect_neighbourhood_hits(start, end, orf.contig, orfs_hits)
         serotype = most_frequent_serotype(neighbourhood_hits)
         serotypes.add(serotype)
 
@@ -51,7 +51,7 @@ def select_best_genes(hits, distance):
     return hits_selected, serotypes
 
 
-def collect_neighbourhood_hits(start, end, contig, distance, orfs_hits):
+def collect_neighbourhood_hits(start, end, contig, orfs_hits):
     orfs_neighbouring = set()
     for orf, orf_hits in orfs_hits.items():
         if contig != orf.contig:
@@ -76,25 +76,25 @@ def most_frequent_serotype(hits):
     if len(most_frequent_serotypes) == 1:
         return most_frequent
     else:
-        return break_most_frequent_type_tie(hits, counts, most_frequent_serotypes)
+        return break_most_frequent_type_tie(counts, most_frequent_serotypes)
 
 
-def break_most_frequent_type_tie(hits, counts, most_frequent_serotypes):
-    # Break by highest accumlative bitscore
+def break_most_frequent_type_tie(counts, most_frequent_serotypes):
+    # Break by highest accumulative bitscore
     # This assumes that at least one ORF has n hits (where n is the number of serotypes)
     orf_hits = dict()
     for serotype in most_frequent_serotypes:
         for hit in counts[serotype]:
             try:
-                org_hits[hit.orf].append(hit)
+                orf_hits[hit.orf].append(hit)
             except KeyError:
-                org_hits[hit.orf] [hit]
+                orf_hits[hit.orf] = [hit]
     serotype_bitscores = {serotype: 0 for serotype in most_frequent_serotypes}
     for orf, orf_hits in orf_hits.items():
         if len(orf_hits) <= 1:
             continue
         best_hit = max(orf_hits, key=lambda k: k.bitscore)
-        best_hit_serotype = database.get_serotype_group(hit.qseqid)
+        best_hit_serotype = database.get_serotype_group(best_hit.qseqid)
         serotype_bitscores[best_hit_serotype] += 1
     # Ignore any breakable ties
     return max(serotype_bitscores, key=lambda k: len(serotype_bitscores[k]))
