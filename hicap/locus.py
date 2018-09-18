@@ -3,6 +3,9 @@ from . import region_common
 from . import region_specific
 
 
+FLANK_DIST = 5000
+
+
 class Group:
 
     def __init__(self, hits, *, serotypes=None, contigs=None):
@@ -57,14 +60,13 @@ def locate_fragmented_region_two(groups, hits_remaining, filter_params):
         return Group({})
 
     # Hits upstream and downstream of region one and three
-    distance = 5000
     hits_candidate = set()
     for region in ('one', 'three'):
         for contig, contig_hits in sort_hits_by_contig(groups[region].hits).items():
             hits_sorted = sorted(contig_hits, key=lambda k: k.orf.start)
             start = min(hits_sorted[0].orf.start, hits_sorted[0].orf.end)
             end = max(hits_sorted[-1].orf.start, hits_sorted[-1].orf.end)
-            hits_candidate |= collect_hits_in_bounds(start, end, contig, distance, hits_rtwo_filtered)
+            hits_candidate |= collect_hits_in_bounds(start, end, contig, FLANK_DIST, hits_rtwo_filtered)
 
     # Select best hits and set them to broken
     hits_remaining -= hits_candidate
