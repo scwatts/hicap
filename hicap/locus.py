@@ -10,7 +10,7 @@ class Group:
         self.serotypes = serotypes
         self.contigs = contigs
 
-        if len(self.contigs) <= 1:
+        if self.contigs and len(self.contigs) <= 1:
             hits_sorted = sorted(self.hits, key=lambda h: h.orf.start)
             self.start = hits_sorted[0].orf.start
             self.end = hits_sorted[-1].orf.end
@@ -68,13 +68,9 @@ def get_gene_region(gene_name):
 
 def discover_region_clusters(hits_complete, hits_remaining, region, filter_params):
     if region in {'one', 'three'}:
-        hits_final = region_common.discover_clusters(hits_complete, hits_remaining, region, filter_params)
-        serotype = set()
+        return region_common.discover_clusters(hits_complete, hits_remaining, region, filter_params)
     else:
-        hits_final, serotype = region_specific.discover_clusters(group.hits, hits_remaining, contig_sizes, filter_params)
-    hits_remaining -= hits_final
-    contigs = {hit.orf.contig for hit in hits_final}
-    return Group(hits_final, serotypes=serotype, contigs=contigs)
+        return region_specific.discover_clusters(hits_complete, hits_remaining, filter_params)
 
 
 def sort_hits_by_orf(hits):

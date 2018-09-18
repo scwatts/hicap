@@ -2,41 +2,69 @@ from . import database
 from . import locus
 
 
-def discover_clusters(hits_complete, hits_remaining, contig_sizes, filter_params):
-    serotype = most_frequent_type(hits_complete)
-    hits_selected = select_best_genes(hits_complete, serotype)
-    hits_broken = discover_missing_genes(hits_selected, hits_remaining, serotype, filter_params)
-    return hits_selected | hits_broken, {serotype}
+def discover_clusters(hits_complete, hits_remaining, filter_params):
+    # Find best hits, determine missing genes, find missing genes, and select best
+    hits_selected, serotypes = select_best_genes(hits_complete, 5000)
+    genes_expected = {gene for serotype in serotypes for gene in database.SEROTYPES[serotype]}
+    genes_missing = genes_expected - {hit.sseqid for hit in hits_complete}
+    hits_filtered = database.filter_hits(hits_remaining, **filter_params)
+    hits_missing = {hit for hit in hits_filtered if hit.sseqid in genes_missing}
+    if hits_missing:
+        for hit in hits_missing:
+            hit.broken = True
+        hits_candidate = hits_selected | hits_missing
+        hits_selected, serotypes = select_best_genes(hits_candidate, 5000)
+
+    # Create and return locus.Group
+    hits_remaining -= hits_selected
+    contigs = {hit.orf.contig for hit in hits_selected}
+    return locus.Group(hits_selected, serotypes=serotypes, contigs=contigs)
 
 
-def select_best_genes(hits, serotype):
-    '''Retaining hits which are a part of the most frequent serotype
+def select_best_genes(hits, distance):
+    hits_selected = set()
+    serotypes = set()
+    orfs_hits = locus.sort_hits_by_orf(hits)
+    for orf, orf_hits in orfs_hits.items():
+        # TODO: efficiency could be improved
+        # Get most frequent serotype hit within +/-5 kb of this orf
+        start = orf.start - distance
+        end = orf.end + distance
+        neighbourhood_hits = collect_neighbourhood_hits(start, end, orf.contig, distance, orfs_hits)
+        serotype = most_frequent_serotype(neighbourhood_hits)
+        serotypes.add(serotype)
 
-    Fallback to other genes if none are present for a given ORF'''
-    # Sort by ORF and keep hits which are most likely
-    hits_selected = hits.copy()
-    for orf_hits in locus.sort_hits_by_orf(hits).values():
-        hits_sorted = sorted(orf_hits, key=lambda h: (h.evalue, h.orf.near_boundary))
-        # Delete none
-        if len(orf_hits) <= 1:
+        hits_sorted = sorted(orf_hits, key=lambda h: h.evalue)
+        # Keep singular hit
+        if len(hits_sorted) <= 1:
+            hits_selected.update(hits_sorted)
             continue
-        # Delete all but first
-        if not any(hit.sseqid in database.SEROTYPES[serotype] for hit in hits_sorted):
-            for hit in list(hits)[1:]:
-                hits_selected.remove(hit)
-            continue
-        # Delete all but first gene of most frequent serotype
-        found_hit = False
+
+        # Select the hits first of the serotype
         for hit in hits_sorted:
-            if found_hit or hit.sseqid not in database.SEROTYPES[serotype]:
-                hits_selected.remove(hit)
-                continue
-            found_hit = True
-    return hits_selected
+            if hit.sseqid in database.SEROTYPES[serotype]:
+                hits_selected.add(hit)
+                break
+        else:
+            # Retain the best hit when no hits of serotype found
+            hits_selected.add(list(hits_sorted)[0])
+    return hits_selected, serotypes
 
 
-def most_frequent_type(hits):
-    '''Return the most serotype which is most complete'''
+def collect_neighbourhood_hits(start, end, contig, distance, orfs_hits):
+    orfs_neighbouring = set()
+    for orf, orf_hits in orfs_hits.items():
+        if contig != orf.contig:
+            continue
+        if orf.start < start:
+            continue
+        if orf.end > end:
+            continue
+        orfs_neighbouring.update(orf_hits)
+    return orfs_neighbouring
+
+
+def most_frequent_serotype(hits):
     counts = {stype: list() for stype in database.SEROTYPES}
     for hit in hits:
         serotype = database.get_serotype_group(hit.sseqid)
@@ -70,19 +98,3 @@ def break_most_frequent_type_tie(hits, counts, most_frequent_serotypes):
         serotype_bitscores[best_hit_serotype] += 1
     # Ignore any breakable ties
     return max(serotype_bitscores, key=lambda k: len(serotype_bitscores[k]))
-
-
-def discover_missing_genes(hits_complete, hits_remaining, serotype, filter_params):
-    '''Count missing genes and return any broken hits for region two
-
-    Filter, locate nearby hits, and select best for each respective ORF'''
-    missing = database.SEROTYPES[serotype] - {hit.sseqid for hit in hits_complete}
-    if not missing:
-        return set()
-    hits_filtered = database.filter_hits(hits_remaining, **filter_params)
-    hits_proximal = locus.find_proximal_hits(hits_complete, hits_filtered, 1000)
-    hits_broken_all = {hit for hit in hits_proximal if hit.sseqid in missing}
-    broken_hits = select_best_genes(hits_broken_all, serotype)
-    for hit in broken_hits:
-        hit.broken = True
-    return broken_hits
