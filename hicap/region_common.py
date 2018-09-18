@@ -4,9 +4,9 @@ from . import locus
 
 def discover_clusters(hits_complete, hits_remaining, region, filter_params):
     hits_selected = select_best_hits(hits_complete)
-    genes_missing = database.SCHEME[region] - {hit.sseqid for hit in hits_complete}
+    genes_missing = locus.count_missing_genes(hits_selected, database.SCHEME[region])
     hits_filtered = database.filter_hits(hits_remaining, **filter_params)
-    hits_missing = {hit for hit in hits_filtered if hit.sseqid in genes_missing}
+    hits_missing = locus.collect_missing_genes(hits_filtered, genes_missing)
     # Select best hits for each discovered missing ORF
     if hits_missing:
         hits_broken = select_best_hits(hits_missing)

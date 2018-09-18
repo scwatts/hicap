@@ -51,6 +51,39 @@ def discover_region_clusters(hits_complete, hits_remaining, region, filter_param
         return region_specific.discover_clusters(hits_complete, hits_remaining, filter_params)
 
 
+def count_missing_genes(hits, expected_genes):
+    hit_counts = dict.fromkeys(expected_genes, 0)
+    for hit in hits:
+        hit_counts[hit.sseqid] += 1
+    expected_count = max(hit_counts.values())
+
+    # In the absence of complete hits, attempt to find nonetheless
+    if not expected_count:
+        expected_count = 1
+
+    missing_count = dict()
+    for hit, count in hit_counts.items():
+        missing_count[hit] = expected_count - count
+    return missing_count
+
+
+def collect_missing_genes(hits, genes_missing):
+    gene_hits = dict()
+    for hit in hits:
+        if hit.sseqid not in gene_hits:
+            gene_hits[hit.sseqid] = {hit}
+        else:
+            gene_hits[hit.sseqid].add(hit)
+
+    hits_missing = set()
+    for gene, count in genes_missing.items():
+        if gene not in gene_hits:
+            continue
+        hits_sorted = sorted(gene_hits[gene], key=lambda k: (1-k.evalue, k.bitscore), reverse=True)
+        hits_missing.update(hits_sorted[:count])
+    return hits_missing
+
+
 def locate_fragmented_region_two(groups, hits_remaining, filter_params):
     # Collect all possible hits for region two
     genes_rtwo_all = {gene for genes in database.SEROTYPES.values() for gene in genes}

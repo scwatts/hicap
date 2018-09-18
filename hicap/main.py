@@ -52,6 +52,7 @@ def main():
         group = locus.locate_fragmented_region_two(region_groups, hits_remaining, filter_params)
         region_groups['two'] = group
 
+    # Create genbank record, report, and summary
     for group in region_groups.values():
         print(group)
         hits_sorted = sorted(group.hits, key=lambda k: k.orf.start)
