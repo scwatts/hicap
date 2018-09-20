@@ -10,7 +10,8 @@ def discover_clusters(hits_complete, hits_remaining, filter_params):
     hits_selected, serotypes = select_best_genes(hits_complete, NEIGHBOUR_DIST)
     genes_missing = dict()
     for serotype in serotypes:
-        missing_serotype_genes = locus.count_missing_genes(hits_selected, database.SEROTYPES[serotype])
+        hits_serotype = {hit for hit in hits_selected if hit.sseqid in database.SEROTYPES[serotype]}
+        missing_serotype_genes = locus.count_missing_genes(hits_serotype, database.SEROTYPES[serotype])
         genes_missing.update(missing_serotype_genes)
     hits_filtered = database.filter_hits(hits_remaining, **filter_params)
     hits_missing = locus.collect_missing_genes(hits_filtered, genes_missing)
@@ -77,7 +78,7 @@ def most_frequent_serotype(hits):
     most_frequent = max(counts, key=lambda k: len(counts[k]))
 
     # Check for ties
-    most_frequent_serotypes = {st for st in counts if counts[st] == counts[most_frequent]}
+    most_frequent_serotypes = {st for st in counts if len(counts[st]) == len(counts[most_frequent])}
     if len(most_frequent_serotypes) == 1:
         return most_frequent
     else:
@@ -99,7 +100,7 @@ def break_most_frequent_type_tie(counts, most_frequent_serotypes):
         if len(orf_hits) <= 1:
             continue
         best_hit = max(orf_hits, key=lambda k: k.bitscore)
-        best_hit_serotype = database.get_serotype_group(best_hit.qseqid)
+        best_hit_serotype = database.get_serotype_group(best_hit.sseqid)
         serotype_bitscores[best_hit_serotype] += 1
     # Ignore any breakable ties
-    return max(serotype_bitscores, key=lambda k: len(serotype_bitscores[k]))
+    return max(serotype_bitscores, key=lambda k: serotype_bitscores[k])

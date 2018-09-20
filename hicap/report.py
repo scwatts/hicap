@@ -142,7 +142,7 @@ def create_genbank_record(region_groups, fasta_fp):
     for i, (contig, contig_hits) in enumerate(contig_hits.items(), 1):
         position_delta, block_sequence = get_block_sequence(contig_hits, fasta[contig], SEQ_PADDING)
         block_sequence = Bio.Seq.Seq(block_sequence, Bio.Alphabet.IUPAC.unambiguous_dna)
-        block_genbank = Bio.SeqRecord.SeqRecord(seq=block_sequence, name='locus_part_%s' % i, id=fasta_fp.stem[:15])
+        block_genbank = Bio.SeqRecord.SeqRecord(seq=block_sequence, name=contig[:15], id=fasta_fp.stem[:15])
         for hit in sorted(contig_hits, key=lambda k: k.orf.start):
             # Get appropriate representation of gene name
             region = hit.region if hit.region else locus.get_gene_region(hit.sseqid)
