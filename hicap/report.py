@@ -96,7 +96,7 @@ def create_summary(region_groups):
     hits_all_gen = (hit for group in region_groups.values() for hit in group.hits)
     contig_hits = locus.sort_hits_by_contig(hits_all_gen)
     if len(contig_hits) > 1:
-        summary_data.mutliple_contigs = True
+        summary_data.multiple_contigs = True
 
     # Store hits sorted by contig
     summary_data.hits_by_contig = contig_hits
@@ -107,9 +107,13 @@ def write_summary(data, fp):
     with fp.open('w') as fh:
         print('#', ','.join(data.serotypes), sep='', file=fh)
         if any(region_complete[0] for region_complete in data.completeness.values()):
-            print('#incomplete', file=fh)
+            print('#incomplete', end='', file=fh)
         else:
-            print('#complete', file=fh)
+            print('#complete', end='', file=fh)
+        if data.multiple_contigs:
+            print(',fragmented', file=fh)
+        else:
+            print(file=fh)
         for contig, contig_hits in data.hits_by_contig.items():
             hits_sorted = sorted(contig_hits, key=lambda k: k.orf.start)
             gene_names = get_gene_names(hits_sorted)
