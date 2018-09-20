@@ -17,7 +17,7 @@ from . import utility
 
 
 SEQ_PADDING = 1000
-COLOURS_COMPELTE = {'one': '#7bcebe',
+COLOURS_COMPLETE = {'one': '#7bcebe',
                     'two': '#f9958b',
                     'three': '#ffe589',
                    }
@@ -127,7 +127,7 @@ def create_genbank_record(region_groups, fasta_fp):
     contig_hits = locus.sort_hits_by_contig(hit_gen)
     for i, (contig, contig_hits) in enumerate(contig_hits.items(), 1):
         position_delta, block_sequence = get_block_sequence(contig_hits, fasta[contig], SEQ_PADDING)
-        block_sequence = Bio.Seq.Seq(block_sequence, Bio.Alphabet.IUPAC.unambiguous_dna),
+        block_sequence = Bio.Seq.Seq(block_sequence, Bio.Alphabet.IUPAC.unambiguous_dna)
         block_genbank = Bio.SeqRecord.SeqRecord(seq=block_sequence, name='locus_part_%s' % i, id=fasta_fp.stem[:15])
         for hit in sorted(contig_hits, key=lambda k: k.orf.start):
             # Get appropriate representation of gene name
@@ -172,7 +172,7 @@ def create_graphic(records, prefix):
             if 'note' in feature.qualifiers and get_qualifier(feature.qualifiers['note']) == 'fragment':
                 gene_colour = COLOURS_BROKEN[region]
             else:
-                gene_colour = COLOURS_COMPELTE[region]
+                gene_colour = COLOURS_COMPLETE[region]
             track_features.add_feature(feature, sigil='BIGARROW', label=True, name=gene_name,
                                        border=reportlab.lib.colors.black, label_position='start',
                                        label_angle=0, color=gene_colour)
