@@ -5,16 +5,17 @@ import re
 from . import utility
 
 
-PRODIGAL_RESULT_RE = re.compile(r'^>[0-9]+_([0-9]+)_([0-9]+)_[-+]$')
+PRODIGAL_RESULT_RE = re.compile(r'^>[0-9]+_([0-9]+)_([0-9]+)_([-+])$')
 PRODIGAL_CONTIG_RE = re.compile(r'^# Sequence.+?seqhdr="(.+?)"(?:;|$)')
 
 
 class Orf:
 
-    def __init__(self, contig, start, end):
+    def __init__(self, contig, start, end, strand):
         self.contig = contig
         self.start = int(start)
         self.end = int(end)
+        self.strand = +1 if strand == '+' else -1
         self.sequence = str()
 
 
