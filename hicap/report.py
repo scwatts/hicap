@@ -37,7 +37,7 @@ TRACK_LABEL_SIZE = 18
 HPOINTS_RE = re.compile(r'^([0-9.]+)[^,]+, ([0-9.]+).+$')
 VPOINTS_RE = re.compile(r'^.+ ([0-9.]+)$')
 PATH_RE = re.compile(r'^M ([0-9.]+).+?L ([0-9.]+).+Z$')
-LABEL_RE = re.compile(r'^ matrix\(([-10.]+).+? ([0-9.]+), ([0-9.]+)\)$')
+LABEL_RE = re.compile(r'^ matrix\(([-10.]+).+? ?([0-9.]+), ?([0-9.]+)\)')
 
 
 class SummaryData:
