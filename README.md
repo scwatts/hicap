@@ -1,11 +1,12 @@
 # hicap
+Identify *cap* loci serotype and structure in your *Haemophilus influenzae* assemblies
+
+![Example loci](https://image.ibb.co/kGLC1e/type_b_example.png)
+
 [![Build Status](https://travis-ci.org/scwatts/hicap.svg?branch=master)](https://travis-ci.org/scwatts/hicap)
 [![Code Coverage](https://codecov.io/gh/scwatts/hicap/branch/master/graph/badge.svg)](https://codecov.io/gh/scwatts/hicap)
 [![License](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0.en.html)
 
-Identify *cap* loci serotype and structure in your *Haemophilus influenzae* assemblies
-
-**This tools remains under development and is not quite ready to use**
 
 
 ## Table of contents
