@@ -6,6 +6,7 @@ import Bio.Alphabet
 import Bio.Seq
 import Bio.SeqRecord
 import Bio.SeqFeature
+import Bio.SeqIO
 import Bio.Graphics.GenomeDiagram
 import reportlab.lib.colors
 
@@ -49,6 +50,8 @@ def create_report(region_groups, fasta_fp, prefix, output_dir):
         Bio.SeqIO.write(genbank_data, fh, 'genbank')
 
     # Graphic
+    # TODO: clean up graphic. force addition of contig names to short tracks
+    # TODO: legend
     output_pdf_fp = pathlib.Path(output_dir, '%s.pdf' % prefix)
     graphic_data = create_graphic(genbank_data, prefix)
     graphic_data.write(str(output_pdf_fp), 'PDF')
@@ -124,23 +127,18 @@ def create_genbank_record(region_groups, fasta_fp):
     contig_hits = locus.sort_hits_by_contig(hit_gen)
     for i, (contig, contig_hits) in enumerate(contig_hits.items(), 1):
         position_delta, block_sequence = get_block_sequence(contig_hits, fasta[contig], SEQ_PADDING)
-        block_genbank = Bio.SeqRecord.SeqRecord(
-                seq=Bio.Seq.Seq(block_sequence, Bio.Alphabet.IUPAC.unambiguous_dna),
-                name='locus_part_%s' % i,
-                id=fasta_fp.stem[:15])
+        block_sequence = Bio.Seq.Seq(block_sequence, Bio.Alphabet.IUPAC.unambiguous_dna),
+        block_genbank = Bio.SeqRecord.SeqRecord(seq=block_sequence, name='locus_part_%s' % i, id=fasta_fp.stem[:15])
         for hit in sorted(contig_hits, key=lambda k: k.orf.start):
             # Get appropriate representation of gene name
-            qualifiers = {'gene': hit.sseqid}
-            qualifiers['region'] = hit.region if hit.region else locus.get_gene_region(hit.sseqid)
+            region = hit.region if hit.region else locus.get_gene_region(hit.sseqid)
+            qualifiers = {'gene': hit.sseqid, 'region': region}
             if hit.broken:
                 qualifiers['note'] = 'fragment'
             feature_start = hit.orf.start - position_delta
             feature_end = hit.orf.end - position_delta
-            feature_location = Bio.SeqFeature.FeatureLocation(start=feature_start, end=feature_end, strand=hit.orf.strand)
-            feature = Bio.SeqFeature.SeqFeature(
-                    location=feature_location,
-                    type='CDS',
-                    qualifiers=qualifiers)
+            feature_loc = Bio.SeqFeature.FeatureLocation(start=feature_start, end=feature_end, strand=hit.orf.strand)
+            feature = Bio.SeqFeature.SeqFeature(location=feature_loc, type='CDS', qualifiers=qualifiers)
             block_genbank.features.append(feature)
         genbank_records.append(block_genbank)
     return genbank_records
@@ -176,7 +174,8 @@ def create_graphic(records, prefix):
             else:
                 gene_colour = COLOURS_COMPELTE[region]
             track_features.add_feature(feature, sigil='BIGARROW', label=True, name=gene_name,
-                    border=reportlab.lib.colors.black, label_position='start', label_angle=0, color=gene_colour)
+                                       border=reportlab.lib.colors.black, label_position='start',
+                                       label_angle=0, color=gene_colour)
 
         # TODO: check that height scaling is appropriate
         height = len(records) * 100
