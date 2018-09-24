@@ -215,9 +215,9 @@ def patch_graphic(graphic_data):
     track_style = 'stroke: rgb(96%,96%,96%); stroke-linecap: butt; stroke-width: 1; fill: rgb(96%,96%,96%);'
     track_backgrounds = svg_tree.findall('.//*[@style="%s"]' % track_style)
     track_hbounds = set()
-    for track_backgrounds in track_backgrounds:
-        bounds_gen = (bounds for bounds in HPOINTS_RE.match(track_backgrounds.get('points')).groups())
-        bounds = tuple(round(float(bound), 3) for bound in bounds_gen)
+    for track_background in track_backgrounds:
+        bounds = HPOINTS_RE.match(track_background.get('points')).groups()
+        bounds = tuple(round(float(bound), 3) for bound in bounds)
         track_hbounds.add(bounds)
 
     # Send the mid-lines backwards
@@ -275,9 +275,9 @@ def patch_graphic(graphic_data):
     text_transform = 'translate(0,0) scale(1,-1)'
     text_attribs = {'style': text_format, 'transform': text_transform, 'x': '0', 'y': '0'}
     text_element = ET.Element('{http://www.w3.org/2000/svg}text', attrib=text_attribs)
-    for contig_name, track_vbound, track_hbounds in zip(contig_names, track_vbounds, track_hbounds):
-        x = track_hbounds[0]
-        y = float(track_vbound) + TRACK_LABEL_SIZE
+    for contig_name, vbound, hbounds in zip(contig_names, track_vbounds, track_hbounds):
+        x = hbounds[0]
+        y = float(vbound) + TRACK_LABEL_SIZE
         name_group = ET.Element('{http://www.w3.org/2000/svg}g', attrib={'transform': transform_template % (x, y)})
         name_text = copy.deepcopy(text_element)
         name_text.text = contig_name
