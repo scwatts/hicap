@@ -211,17 +211,22 @@ def patch_graphic(graphic_data):
     svg_tree = ET.fromstring(svg_data)
     visual_parent = svg_tree.find('.//{http://www.w3.org/2000/svg}g[@transform=""]')
 
-    # Get track bound sizes
+    # Get track bound sizes - must round to 3 significant digits for backwards compatibility
     track_style = 'stroke: rgb(96%,96%,96%); stroke-linecap: butt; stroke-width: 1; fill: rgb(96%,96%,96%);'
     track_backgrounds = svg_tree.findall('.//*[@style="%s"]' % track_style)
-    track_hbounds = {HPOINTS_RE.match(tb.get('points')).groups() for tb in track_backgrounds}
+    track_hbounds = set()
+    for track_backgrounds in track_backgrounds:
+        bounds_gen = (bounds for bounds in HPOINTS_RE.match(track_backgrounds.get('points')).groups())
+        bounds = tuple(round(float(bound), 3) for bound in bounds_gen)
+        track_hbounds.add(bounds)
 
     # Send the mid-lines backwards
     # Place them behind the gene symbols but in front track background shading
     paths = svg_tree.findall('.//{http://www.w3.org/2000/svg}g[@transform=""]/{http://www.w3.org/2000/svg}path')
     line_elements = list()
     for path in paths:
-        path_hbounds = PATH_RE.match(path.get('d')).groups()
+        # Round to 3 significant digits for backwards compatibility
+        path_hbounds = tuple(round(float(bound), 3) for bound in PATH_RE.match(path.get('d')).groups())
         if path_hbounds in track_hbounds:
             # Remove mid lines and store for later insert at appropriate position
             line_elements.append(path)
@@ -232,7 +237,7 @@ def patch_graphic(graphic_data):
 
     # Insert track midpoint lines immediately after track background elements
     for line_element in line_elements:
-        visual_parent.insert(len(track_backgrounds), line_element)
+        visual_parent.insert(len(track_hbounds), line_element)
 
     # Fix reversed, mirrored labels and pad other labels
     # Genes on the non-coding strand have their labels upside down which is difficult to read
@@ -271,7 +276,7 @@ def patch_graphic(graphic_data):
     text_attribs = {'style': text_format, 'transform': text_transform, 'x': '0', 'y': '0'}
     text_element = ET.Element('{http://www.w3.org/2000/svg}text', attrib=text_attribs)
     for contig_name, track_vbound, track_hbounds in zip(contig_names, track_vbounds, track_hbounds):
-        x = float(track_hbounds[0])
+        x = track_hbounds[0]
         y = float(track_vbound) + TRACK_LABEL_SIZE
         name_group = ET.Element('{http://www.w3.org/2000/svg}g', attrib={'transform': transform_template % (x, y)})
         name_text = copy.deepcopy(text_element)
