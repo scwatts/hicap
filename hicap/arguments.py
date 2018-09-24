@@ -1,27 +1,36 @@
 import argparse
 import logging
 import pathlib
+import shutil
 import sys
 
 
 from . import utility
+from . import __version__
+
+
+class WideHelpFormatter(argparse.HelpFormatter):
+
+    def __init__(self, *args, **kwargs):
+        terminal_width = shutil.get_terminal_size().columns
+        help_width = min(terminal_width, 140)
+        super().__init__(*args, **kwargs, width=help_width)
 
 
 def get_args():
     # Parsers
-    parser_parent = argparse.ArgumentParser()
+    parser_parent = argparse.ArgumentParser(formatter_class=WideHelpFormatter, add_help=False)
     parser_files = parser_parent.add_argument_group('File input and output')
     parser_params = parser_parent.add_argument_group('Search parameters')
     parser_other = parser_parent.add_argument_group('Other')
 
     # Inputs
-    # TODO: need to work on generalising structure and naming of database
     database_dir = pathlib.Path(__file__).parent / 'database'
-    parser_files.add_argument('--query_fp', required=True, type=pathlib.Path,
+    parser_files.add_argument('-q', '--query_fp', required=True, type=pathlib.Path,
                               help='Input FASTA query')
-    parser_files.add_argument('--output_dir', required=True, type=pathlib.Path,
+    parser_files.add_argument('-o', '--output_dir', required=True, type=pathlib.Path,
                               help='Output directory')
-    parser_files.add_argument('--database_dir', required=False, type=pathlib.Path, default=database_dir,
+    parser_files.add_argument('-d', '--database_dir', required=False, type=pathlib.Path, default=database_dir,
                               help='Directory containing locus database. [default: %s]' % database_dir)
 
     # Parameters
@@ -35,14 +44,15 @@ def get_args():
                                help='Minimum percentage identity to consider a broken gene. [default: 0.90]')
 
     # Other
+    parser_other.add_argument('--log_fp', type=pathlib.Path, help='Record logging messages to file')
     parser_other.add_argument('--debug', action='store_const', dest='log_level', const=logging.DEBUG,
                               default=logging.INFO, help='Print debug messages')
-    parser_other.add_argument('--log_fp', type=pathlib.Path,
-                              help='Record logging messages to file')
-    parser_other.add_argument('--help_all', help='Display extended help')
+    parser_other.add_argument('-v', '--version', action='version', version='%(prog)s {}'.format(__version__))
+    parser_other.add_argument('-h', '--help', action='help', help='Show this help message and exit')
+    parser_other.add_argument('--help_all', action='store_true', help='Display extended help')
 
     # Change behaviour of help display
-    quick_help_args = ('--query_fp', '--output_dir', '--help_all')
+    quick_help_args = ('--query_fp', '--output_dir', '--version', '--help', '--help_all')
     if '--help_all' in sys.argv[1:]:
         parser_parent.print_help()
         sys.exit(0)
