@@ -5,7 +5,7 @@ import setuptools
 # Set package details
 package_name = 'hicap'
 package_description = 'in silico typing of H. influenzae cap locus'
-package_version = '0.1.0'
+package_version = '0.1.1'
 author = 'Stephen Watts'
 license = 'GPLv3'
 
