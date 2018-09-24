@@ -30,7 +30,7 @@ def main():
                 print('>%s' % i, orf.sequence, sep='\n', file=fh)
         hits = database.search(orfs_fp, args.database_fps)
 
-    # Set the respective ORF for each hit and get contig sizes
+    # Set the respective ORF for each hit
     hits = database.assign_hit_orfs(hits, orfs_all)
 
     # Find complete hits
@@ -41,6 +41,7 @@ def main():
         sys.exit(0)
     utility.log_search_hits_found(hits_complete)
 
+    # Selected best complete hits and search for hits of broken/ truncated genes
     region_groups = dict()
     all_region_hits = locus.sort_hits_by_region(hits_complete)
     filter_params = {'identity_min': args.broken_gene_identity, 'length_min': args.broken_gene_length}

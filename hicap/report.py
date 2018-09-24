@@ -216,24 +216,27 @@ def patch_graphic(graphic_data):
     track_backgrounds = svg_tree.findall('.//*[@style="%s"]' % track_style)
     track_hbounds = {HPOINTS_RE.match(tb.get('points')).groups() for tb in track_backgrounds}
 
-    # Collect mid point lines
+    # Send the mid-lines backwards
+    # Place them behind the gene symbols but in front track background shading
     paths = svg_tree.findall('.//{http://www.w3.org/2000/svg}g[@transform=""]/{http://www.w3.org/2000/svg}path')
     line_elements = list()
     for path in paths:
         path_hbounds = PATH_RE.match(path.get('d')).groups()
         if path_hbounds in track_hbounds:
-            # Remove mid lines and store for later insert
+            # Remove mid lines and store for later insert at appropriate position
             line_elements.append(path)
             visual_parent.remove(path)
         elif path_hbounds[0] not in {p for hbounds in track_hbounds for p in hbounds}:
             # Remove x-axis ticks
             visual_parent.remove(path)
 
-    # Insert track midpoint lines
+    # Insert track midpoint lines immediately after track background elements
     for line_element in line_elements:
         visual_parent.insert(len(track_backgrounds), line_element)
 
-    # Fix reversed, mirrored labels. Pad other labels
+    # Fix reversed, mirrored labels and pad other labels
+    # Genes on the non-coding strand have their labels upside down which is difficult to read
+    # Set the padding to be equal
     transform_template = ' matrix(1.000000, 0.000000, -0.000000, 1.000000, %s, %s)'
     texts = svg_tree.findall('.//{http://www.w3.org/2000/svg}g[@transform=""]/{http://www.w3.org/2000/svg}g')
     for text in texts:
@@ -247,7 +250,7 @@ def patch_graphic(graphic_data):
             transform = transform_template % (x, y_adjusted)
             text.set('transform', transform)
 
-    # Remove original track name label
+    # Remove original track name label - on short tracks, these don't even appear
     name_style = 'font-family: Helvetica; font-size: 8px; fill: rgb(60%,60%,60%);'
     names = svg_tree.findall('.//*[@style="%s"]..' % name_style)
     for name in names:
@@ -257,10 +260,12 @@ def patch_graphic(graphic_data):
     contig_names = [track.name for track in graphic_data.tracks.values()]
     track_vbounds = [VPOINTS_RE.match(tb.get('points')).group(1) for tb in track_backgrounds]
 
+    # Get the correct position to insert these labels
     for insert_index, element in enumerate(visual_parent):
         if element.tag == '{http://www.w3.org/2000/svg}g':
             break
 
+    # Create new elements and place them into the svg document
     text_format = 'font-family: Helvetica; font-size: %spx; fill: rgb(0%%,0%%,0%%);' % TRACK_LABEL_SIZE
     text_transform = 'translate(0,0) scale(1,-1)'
     text_attribs = {'style': text_format, 'transform': text_transform, 'x': '0', 'y': '0'}
