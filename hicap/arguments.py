@@ -56,10 +56,9 @@ def get_args():
     if '--help_all' in sys.argv[1:]:
         parser_parent.print_help()
         sys.exit(0)
-    else:
-        for arg in parser_parent._actions:
-            if not any(qarg in arg.option_strings for qarg in quick_help_args):
-                arg.help = argparse.SUPPRESS
+    for arg in parser_parent._actions:
+        if not any(qarg in arg.option_strings for qarg in quick_help_args):
+            arg.help = argparse.SUPPRESS
 
     # Glob for database files
     args = parser_parent.parse_args()
