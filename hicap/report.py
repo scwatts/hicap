@@ -43,8 +43,9 @@ LABEL_RE = re.compile(r'^ matrix\(([-10.]+).+? ?([0-9.]+), ?([0-9.]+)\)')
 class SummaryData:
 
     def __init__(self):
-        self.completeness = dict.fromkeys(database.SCHEME, tuple())
-        self.duplciated = None
+        self.completeness = dict.fromkeys(database.SCHEME, None)
+        self.truncated_genes = dict.fromkeys(database.SCHEME, None)
+        self.duplicated = None
         self.multiple_contigs = None
         self.serotypes = None
         self.hits_by_contig = None
@@ -75,8 +76,8 @@ def create_summary(region_groups):
     summary_data = SummaryData()
     for region in ('one', 'two', 'three'):
         group = region_groups[region]
-        # Completeness and good genes
-        genes_found = {hit.sseqid for hit in group.hits if not hit.broken}
+        # Completeness and truncated genes
+        genes_found = {hit.sseqid for hit in group.hits}
         if region in ('one', 'three'):
             genes_expected = database.SCHEME[region]
         else:
@@ -85,6 +86,7 @@ def create_summary(region_groups):
                 genes_expected.update(database.SEROTYPES[serotype])
         genes_missing = genes_expected - genes_found
         summary_data.completeness[region] = (genes_missing, len(genes_found), len(genes_expected))
+        summary_data.truncated_genes[region] = {hit for hit in group.hits if hit.broken}
         # Duplication. Verbose for clarity
         if region in ('one', 'three') and group.hits and is_duplicated(group.hits, 8000):
             summary_data.duplicated = True
@@ -105,15 +107,20 @@ def create_summary(region_groups):
 
 def write_summary(data, fp):
     with fp.open('w') as fh:
+        attributes = list()
         print('#', ','.join(data.serotypes), sep='', file=fh)
         if any(region_complete[0] for region_complete in data.completeness.values()):
-            print('#incomplete', end='', file=fh)
+            attributes.append('missing_genes')
         else:
-            print('#complete', end='', file=fh)
+            attributes.append('full_gene_complement')
+        if any(data.truncated_genes.values()):
+            attributes.append('truncated_genes')
         if data.multiple_contigs:
-            print(',fragmented', file=fh)
-        else:
-            print(file=fh)
+            attributes.append('fragmented_locus')
+        if data.duplicated:
+            attributes.append('duplicated')
+        print('#', end='', file=fh)
+        print(*attributes, sep=',', file=fh)
         for contig, contig_hits in data.hits_by_contig.items():
             hits_sorted = sorted(contig_hits, key=lambda k: k.orf.start)
             gene_names = get_gene_names(hits_sorted)
