@@ -57,19 +57,27 @@ def create_report(region_groups, fasta_fp, prefix, output_dir):
     summary_data = create_summary(region_groups)
     write_summary(summary_data, output_report_fp)
 
-    # Genbank
+    # Genbank - create
+    # Genbank spec requires contig names/ locus names of less than 20 characters but
+    # we want full contigs names in the graphic. So we'll truncate the names after
+    # generating the graphic
     output_gbk_fp = pathlib.Path(output_dir, '%s.gbk' % prefix)
     genbank_data = create_genbank_record(region_groups, fasta_fp)
-    with output_gbk_fp.open('w') as fh:
-        Bio.SeqIO.write(genbank_data, fh, 'genbank')
 
-    # Create and then patch graphic
+    # Graphic
     # TODO: legend?
     output_svg_fp = pathlib.Path(output_dir, '%s.svg' % prefix)
     graphic_data = create_graphic(genbank_data, prefix)
     svg_data = patch_graphic(graphic_data)
     with output_svg_fp.open('w') as fh:
         fh.write(svg_data)
+
+    # Genbank - write
+    for record in genbank_data:
+        record.name = record.name.split()[0][:15]
+        record.id = record.id.split()[0][:15]
+    with output_gbk_fp.open('w') as fh:
+        Bio.SeqIO.write(genbank_data, fh, 'genbank')
 
 
 def create_summary(region_groups):
@@ -153,9 +161,7 @@ def create_genbank_record(region_groups, fasta_fp):
     for i, (contig, contig_hits) in enumerate(contig_hits.items(), 1):
         position_delta, block_sequence = get_block_sequence(contig_hits, fasta[contig], SEQ_PADDING)
         block_sequence = Bio.Seq.Seq(block_sequence, Bio.Alphabet.IUPAC.unambiguous_dna)
-        block_name = contig.split()[0][:15]
-        block_id = fasta_fp.stem.split()[0][:15]
-        block_genbank = Bio.SeqRecord.SeqRecord(seq=block_sequence, name=block_name, id=block_id)
+        block_genbank = Bio.SeqRecord.SeqRecord(seq=block_sequence, name=contig, id=fasta_fp.stem)
         for hit in sorted(contig_hits, key=lambda k: k.orf.start):
             # Get appropriate representation of gene name
             region = hit.region if hit.region else locus.get_gene_region(hit.sseqid)

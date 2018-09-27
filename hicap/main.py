@@ -19,6 +19,12 @@ def main():
     utility.check_dependencies()
     arguments.check_args(args)
 
+    # Check FASTA input contig names aren't too long for the genbank format
+    if any(len(desc) > 20 for desc in utility.read_fasta(args.query_fp)):
+        msg = ('One or more contig names exceed the genbank spec limit of 20 characters.'
+               ' These will be truncated in the genbank output file')
+        logging.warning(msg)
+
     # Collect ORFs from input assembly
     orfs_all = annotation.collect_orfs(args.query_fp)
 
