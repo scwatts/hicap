@@ -86,7 +86,7 @@ def create_summary(region_groups):
         genes_missing = genes_expected - genes_found
         summary_data.completeness[region] = (genes_missing, len(genes_found), len(genes_expected))
         # Duplication. Verbose for clarity
-        if region in ('one', 'three') and is_duplicated(group.hits, 8000):
+        if region in ('one', 'three') and group.hits and is_duplicated(group.hits, 8000):
             summary_data.duplicated = True
 
     # Serotype
