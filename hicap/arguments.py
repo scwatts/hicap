@@ -79,6 +79,13 @@ def check_args(args):
 
     # TODO: check that all database files are present
 
+    # Input format
+    try:
+        utility.read_fasta(args.query_fp)
+    except SystemExit:
+        logging.error('Input file %s does not appear to be in a valid FASTA format' % args.query_fp)
+        sys.exit(1)
+
     # Directory
     if not args.output_dir.exists():
         logging.error('Output directory %s does not exist', args.output_dir)
