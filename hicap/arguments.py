@@ -14,7 +14,7 @@ class WideHelpFormatter(argparse.HelpFormatter):
     def __init__(self, *args, **kwargs):
         terminal_width = shutil.get_terminal_size().columns
         help_width = min(terminal_width, 140)
-        super().__init__(*args, **kwargs, width=help_width)
+        super().__init__(*args, **kwargs, max_help_position=help_width, width=help_width)
 
 
 def get_args():
