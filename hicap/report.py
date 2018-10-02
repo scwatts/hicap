@@ -150,8 +150,8 @@ def is_duplicated(hits):
     gene_counts = dict.fromkeys(genes_hits)
     # Sometimes a single gene is broken into multiple ORFs but wrt to duplication should
     # be considered as a single unit. We do this by setting a bound ~ to expected gene len
-    for gene, hits in genes_hits.items():
-        hit_first, *hits_sorted = sorted(hits, key=lambda hit: min(hit.orf.start, hit.orf.end))
+    for gene, gene_hits in genes_hits.items():
+        hit_first, *hits_sorted = sorted(gene_hits, key=lambda hit: min(hit.orf.start, hit.orf.end))
         upper_bound = min(hit_first.orf.start, hit_first.orf.end) + hit_first.slen * 1.5
         gene_counts[gene] = 1
         for hit in hits_sorted:
