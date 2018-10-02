@@ -3,7 +3,8 @@ from . import region_common
 from . import region_specific
 
 
-FLANK_DIST = 5000
+RTWO_FLANK_DIST = 5000
+NEARBY_FLANK_DIST = 1000
 
 
 class Group:
@@ -80,10 +81,11 @@ def locate_fragmented_region_two(groups, hits_remaining, filter_params):
     hits_candidate = set()
     for region in ('one', 'three'):
         for contig, contig_hits in sort_hits_by_contig(groups[region].hits).items():
-            hits_sorted = sorted(contig_hits, key=lambda k: k.orf.start)
-            start = min(hits_sorted[0].orf.start, hits_sorted[0].orf.end)
-            end = max(hits_sorted[-1].orf.start, hits_sorted[-1].orf.end)
-            hits_candidate |= collect_hits_in_bounds(start, end, contig, FLANK_DIST, hits_rtwo_filtered)
+            getter = lambda h: h.orf
+            hits_start, hits_end = get_elements_bounds(contig_hits, getter)
+            range_start = hits_start - RTWO_FLANK_DIST
+            range_end = hits_end + RTWO_FLANK_DIST
+            hits_candidate |= collect_elements_in_bounds(range_start, range_end, contig, hits_rtwo_filtered, getter)
 
     # Select best hits and set them to broken
     hits_remaining -= hits_candidate
@@ -93,21 +95,90 @@ def locate_fragmented_region_two(groups, hits_remaining, filter_params):
     return group
 
 
-def collect_hits_in_bounds(start, end, contig, distance, hits):
-    # TODO: optimise if required
-    hits_selected = set()
-    bounds = ((start - distance, start), (end, end + distance))
+def find_adjacent_fragments(hits, region, hits_remaining):
+    hits_orfs = {hit.orf for hit in hits}
+    hits_adjacent = set()
     for hit in hits:
-        if hit.orf.contig != contig:
+        # Only search around broken hits
+        if not hit.broken:
             continue
-        hit_start = min(hit.orf.start, hit.orf.end)
-        hit_end = max(hit.orf.start, hit.orf.end)
-        for bound_start, bound_end in bounds:
-            if bound_start <= hit_start <= bound_end:
-                hits_selected.add(hit)
-            elif bound_start <= hit_end <= bound_end:
-                hits_selected.add(hit)
-    return hits_selected
+
+        # Find all adjacent hits with the same subject gene
+        if hit.sstart < hit.send:
+            start = hit.orf.start - hit.sstart + 1
+            end = hit.orf.end + (hit.slen - hit.send) + 1
+        else:
+            start = hit.orf.start - (hit.slen - hit.send) + 1
+            end = hit.orf.end + hit.sstart + 1
+        getter = lambda h: h.orf
+        hits_collected = collect_elements_in_bounds(start, end, hit.orf.contig, hits_remaining, getter)
+        hits_collected = {h for h in hits_collected if h.sseqid == hit.sseqid and h.orf not in hits_orfs}
+
+        # Apply some sanity filtering here - not exposed to user
+        hits_filtered = set()
+        for hit in hits_collected:
+            if hit.evalue >= 0.01:
+                continue
+            if hit.length <= 60:
+                continue
+            hits_filtered.add(hit)
+
+        # Select best hits - Just being careful here; in most cases this will be unnecessary
+        if region in {'one', 'three'}:
+            hits_selected = region_common.select_best_hits(hits_filtered)
+        else:
+            hits_selected = set()
+            serotype = database.get_serotype_group(hit.sseqid)
+            for orf_hits in sort_hits_by_orf(hits_filtered).values():
+                hit_best = region_specific.perform_selection(orf_hits, serotype)
+                hits_selected.add(hit_best)
+        hits_adjacent |= hits_selected
+
+    # Update hits_remaining and return
+    hits_remaining -= hits_adjacent
+    for hit in hits_adjacent:
+        hit.broken = True
+    return hits_adjacent
+
+
+def collect_nearby_orfs(region_groups, orfs_all):
+    hits_selected = {hit for group in region_groups.values() for hit in group.hits}
+    orfs_selected = sort_hits_by_orf(hits_selected)
+    orfs_remaining = set(orfs_all) - set(orfs_selected)
+
+    nearby_orfs = set()
+    for contig, contig_hits in sort_hits_by_contig(hits_selected).items():
+        getter_hit = lambda h: h.orf
+        hits_start, hits_end = get_elements_bounds(contig_hits, getter_hit)
+        range_start = hits_start - NEARBY_FLANK_DIST
+        range_end = hits_end + NEARBY_FLANK_DIST
+        # TODO: we should check if these nearby ORFs are _somehow_ cap locus specific genes
+        orfs = collect_elements_in_bounds(range_start, range_end, contig, orfs_remaining)
+        nearby_orfs |= orfs
+    return nearby_orfs
+
+
+def get_elements_bounds(elements, getter):
+    # This getter confusion saves ~60 lines of repeating code. worth it? that's highly doubtful
+    elements_sorted = sorted(elements, key=lambda k: getter(k).start)
+    start = min(getter(elements_sorted[0]).start, getter(elements_sorted[0]).end)
+    end = max(getter(elements_sorted[-1]).start, getter(elements_sorted[-1]).end)
+    return start, end
+
+
+def collect_elements_in_bounds(start, end, contig, elements, getter=lambda e: e):
+    # TODO: optimise if required
+    elements_selected = set()
+    for element in elements:
+        if getter(element).contig != contig:
+            continue
+        element_start = min(getter(element).start, getter(element).end)
+        element_end = max(getter(element).start, getter(element).end)
+        if start <= element_start <= end:
+            elements_selected.add(element)
+        elif start <= element_end <= end:
+            elements_selected.add(element)
+    return elements_selected
 
 
 def sort_hits_by_orf(hits):
@@ -147,3 +218,13 @@ def sort_hits_by_region(hits):
             hit.region = get_gene_region(hit.sseqid)
         region_hits[hit.region].append(hit)
     return region_hits
+
+
+def sort_orfs_by_contig(orfs):
+    contigs_orfs = dict()
+    for orf in orfs:
+        try:
+            contigs_orfs[orf.contig].add(orf)
+        except KeyError:
+            contigs_orfs[orf.contig] = {orf}
+    return contigs_orfs

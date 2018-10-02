@@ -25,6 +25,7 @@ SEQ_PADDING = 1000
 COLOURS_COMPLETE = {'one': '#7bcebe',
                     'two': '#f9958b',
                     'three': '#ffe589',
+                    'none': '#999999',
                    }
 COLOURS_BROKEN= {'one': '#8fa8a3',
                   'two': '#d3a7a2',
@@ -51,7 +52,7 @@ class SummaryData:
         self.hits_by_contig = None
 
 
-def create_report(region_groups, fasta_fp, prefix, output_dir):
+def create_report(region_groups, nearby_orfs, fasta_fp, prefix, output_dir):
     # Report
     output_report_fp = pathlib.Path(output_dir, '%s.tsv' % prefix)
     summary_data = create_summary(region_groups)
@@ -62,7 +63,7 @@ def create_report(region_groups, fasta_fp, prefix, output_dir):
     # we want full contigs names in the graphic. So we'll truncate the names after
     # generating the graphic
     output_gbk_fp = pathlib.Path(output_dir, '%s.gbk' % prefix)
-    genbank_data = create_genbank_record(region_groups, fasta_fp)
+    genbank_data = create_genbank_record(region_groups, nearby_orfs, fasta_fp)
 
     # Graphic
     # TODO: legend?
@@ -160,17 +161,32 @@ def is_duplicated(hits):
     return any(gene_count > 1 for gene_count in gene_counts.values())
 
 
-def create_genbank_record(region_groups, fasta_fp):
+def create_genbank_record(region_groups, nearby_orfs, fasta_fp):
+    # TODO: handle sequence boundaries correctly - max(1000 padding or up to the most distant ORF)
     logging.info('Creating genbank records')
-    genbank_records = list()
     fasta = utility.read_fasta(fasta_fp)
-    hit_gen = (hit for group in region_groups.values() for hit in group.hits)
-    contig_hits = locus.sort_hits_by_contig(hit_gen)
-    for i, (contig, contig_hits) in enumerate(contig_hits.items(), 1):
-        position_delta, block_sequence = get_block_sequence(contig_hits, fasta[contig], SEQ_PADDING)
-        block_sequence = Bio.Seq.Seq(block_sequence, Bio.Alphabet.IUPAC.unambiguous_dna)
-        block_genbank = Bio.SeqRecord.SeqRecord(seq=block_sequence, name=contig, id=fasta_fp.stem)
+    hits_all = [hit for group in region_groups.values() for hit in group.hits]
+
+    # Create base records
+    contigs = {hit.orf.contig for hit in hits_all}
+    position_delta = 0
+    gb_records = dict()
+    for contig in contigs:
+        gb_records[contig] = Bio.SeqRecord.SeqRecord(seq='atgc', name=contig, id=fasta_fp.stem)
+
+
+    # TODO: TEMP
+    pd = dict()
+
+    # Add hits
+    for contig, contig_hits in locus.sort_hits_by_contig(hits_all).items():
         for hit in sorted(contig_hits, key=lambda k: k.orf.start):
+            # TODO TEMP
+            position_delta, block_sequence = get_block_sequence(contig_hits, fasta[contig], SEQ_PADDING)
+            sequence = Bio.Seq.Seq(block_sequence, Bio.Alphabet.IUPAC.unambiguous_dna)
+            gb_records[contig].seq = sequence
+            pd[contig] = position_delta
+
             # Get appropriate representation of gene name
             region = hit.region if hit.region else locus.get_gene_region(hit.sseqid)
             qualifiers = {'gene': hit.sseqid, 'region': region}
@@ -180,9 +196,33 @@ def create_genbank_record(region_groups, fasta_fp):
             feature_end = hit.orf.end - position_delta
             feature_loc = Bio.SeqFeature.FeatureLocation(start=feature_start, end=feature_end, strand=hit.orf.strand)
             feature = Bio.SeqFeature.SeqFeature(location=feature_loc, type='CDS', qualifiers=qualifiers)
-            block_genbank.features.append(feature)
-        genbank_records.append(block_genbank)
-    return genbank_records
+            gb_records[contig].features.append(feature)
+
+    # Add ORFs
+    orf_counter = 0
+    for contig, orfs in locus.sort_orfs_by_contig(nearby_orfs).items():
+        # Get current bounds - FeatureLocation.start always smallest regardless of strand
+        start = min(gb_records[contig].features, key=lambda k: k.location.start)
+        end = max(gb_records[contig].features, key=lambda k: k.location.end)
+
+        # TODO TEMP
+        position_delta = pd[contig]
+
+        for orf in sorted(orfs, key=lambda o: o.start):
+            orf_counter += 1
+            qualifiers = {'gene': 'orf_%s' % orf_counter, 'region': 'none'}
+            feature_start = orf.start - position_delta
+            feature_end = orf.end - position_delta
+            feature_loc = Bio.SeqFeature.FeatureLocation(start=feature_start, end=feature_end, strand=orf.strand)
+            feature = Bio.SeqFeature.SeqFeature(location=feature_loc, type='CDS', qualifiers=qualifiers)
+            gb_records[contig].features.append(feature)
+
+    # Add appropriately sizes sequence to records
+    for contig, gb_record in gb_records.items():
+        #sequence = Bio.Seq.Seq(fasta[contig], Bio.Alphabet.IUPAC.unambiguous_dna)
+        pass
+
+    return [record for record in gb_records.values()]
 
 
 def get_block_sequence(hits, block_contig, margin):
@@ -228,6 +268,8 @@ def create_graphic(records, prefix):
 
 
 def patch_graphic(graphic_data):
+    # TODO: dodge labels for very short contigs
+    # TODO: alternatively consider different representation - single block with annotated stop codons
     svg_data = get_svg_data(graphic_data)
     svg_tree = ET.fromstring(svg_data)
     visual_parent = svg_tree.find('.//{http://www.w3.org/2000/svg}g[@transform=""]')

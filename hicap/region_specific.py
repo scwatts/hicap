@@ -40,21 +40,24 @@ def select_best_genes(hits, distance):
         serotype = most_frequent_serotype(neighbourhood_hits)
         serotypes.add(serotype)
 
-        hits_sorted = sorted(orf_hits, key=lambda h: h.evalue)
-        # Keep singular hit
-        if len(hits_sorted) <= 1:
-            hits_selected.update(hits_sorted)
-            continue
-
-        # Select the hits first of the serotype
-        for hit in hits_sorted:
-            if hit.sseqid in database.SEROTYPES[serotype]:
-                hits_selected.add(hit)
-                break
-        else:
-            # Retain the best hit when no hits of serotype found
-            hits_selected.add(list(hits_sorted)[0])
+        # Get the best hit
+        hit_best = perform_selection(orf_hits, serotype)
+        hits_selected.add(hit_best)
     return hits_selected, serotypes
+
+
+def perform_selection(hits, serotype):
+    # Keep singular hit
+    if len(hits) <= 1:
+        return hits.pop()
+    # Select the orfs first hit of the serotype
+    hits_sorted = sorted(hits, key=lambda h: h.evalue)
+    for hit in hits_sorted:
+        if hit.sseqid in database.SEROTYPES[serotype]:
+            return hit
+    else:
+        # Retain the best hit when no hits of serotype found
+        return list(hits_sorted)[0]
 
 
 def collect_neighbourhood_hits(start, end, contig, orfs_hits):

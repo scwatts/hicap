@@ -61,5 +61,13 @@ def main():
         group = locus.locate_fragmented_region_two(region_groups, hits_remaining, filter_params)
         region_groups['two'] = group
 
+    # For any gene, attempt to find adjacent fragments
+    for region, group in region_groups.items():
+        group.hits |= locus.find_adjacent_fragments(group.hits, region, hits_remaining)
+
+    # Collect ORFs that are not apart of the Hi cap loci in the surrounding areas
+    # TODO: contig min/max(orf.start, orf.end, boundary)
+    nearby_orfs = locus.collect_nearby_orfs(region_groups, orfs_all)
+
     # Generate output data and files
-    report.create_report(region_groups, args.query_fp, args.query_fp.stem, args.output_dir)
+    report.create_report(region_groups, nearby_orfs, args.query_fp, args.query_fp.stem, args.output_dir)
