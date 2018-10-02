@@ -96,7 +96,7 @@ def create_summary(region_groups):
         summary_data.completeness[region] = (genes_missing, len(genes_found), len(genes_expected))
         summary_data.truncated_genes[region] = {hit for hit in group.hits if hit.broken}
         # Duplication. Verbose for clarity
-        if region in ('one', 'three') and group.hits and is_duplicated(group.hits, 8000):
+        if group.hits and is_duplicated(group.hits):
             summary_data.duplicated = True
 
     # Serotype
@@ -145,11 +145,19 @@ def get_gene_names(hits):
     return gene_names
 
 
-def is_duplicated(hits, distance):
-    hits_sorted = sorted(hits, key=lambda k: k.orf.start)
-    hits_start = min(hits_sorted[0].orf.start, hits_sorted[0].orf.end)
-    hits_end = max(hits_sorted[-1].orf.start, hits_sorted[-1].orf.end)
-    return (hits_end - hits_start) >= distance
+def is_duplicated(hits):
+    genes_hits = locus.sort_hits_by_gene(hits)
+    gene_counts = dict.fromkeys(genes_hits)
+    # Sometimes a single gene is broken into multiple ORFs but wrt to duplication should
+    # be considered as a single unit. We do this by setting a bound ~ to expected gene len
+    for gene, hits in genes_hits.items():
+        hit_first, *hits_sorted = sorted(hits, key=lambda hit: min(hit.orf.start, hit.orf.end))
+        upper_bound = min(hit_first.orf.start, hit_first.orf.end) + hit_first.slen * 1.5
+        gene_counts[gene] = 1
+        for hit in hits_sorted:
+            if max(hit.orf.start, hit.orf.end) >= upper_bound:
+                gene_counts[gene] += 1
+    return any(gene_count > 1 for gene_count in gene_counts.values())
 
 
 def create_genbank_record(region_groups, fasta_fp):

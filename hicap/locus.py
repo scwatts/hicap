@@ -58,14 +58,8 @@ def count_missing_genes(hits, expected_genes):
 
 
 def collect_missing_genes(hits, genes_missing):
-    gene_hits = dict()
-    for hit in hits:
-        if hit.sseqid not in gene_hits:
-            gene_hits[hit.sseqid] = {hit}
-        else:
-            gene_hits[hit.sseqid].add(hit)
-
     hits_missing = set()
+    gene_hits = sort_hits_by_gene(hits)
     for gene, count in genes_missing.items():
         if gene not in gene_hits:
             continue
@@ -124,6 +118,16 @@ def sort_hits_by_orf(hits):
         except KeyError:
             orfs_hits[hit.orf] = {hit}
     return orfs_hits
+
+
+def sort_hits_by_gene(hits):
+    gene_hits = dict()
+    for hit in hits:
+        try:
+            gene_hits[hit.sseqid].add(hit)
+        except KeyError:
+            gene_hits[hit.sseqid] = {hit}
+    return gene_hits
 
 
 def sort_hits_by_contig(hits):
