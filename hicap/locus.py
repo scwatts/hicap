@@ -154,7 +154,13 @@ def collect_nearby_orfs(region_groups, orfs_all):
         range_end = hits_end + NEARBY_FLANK_DIST
         # TODO: we should check if these nearby ORFs are _somehow_ cap locus specific genes
         orfs = collect_elements_in_bounds(range_start, range_end, contig, orfs_remaining)
-        nearby_orfs |= orfs
+        # Apply some sanity filtering here - not exposed to user
+        orfs_filtered = set()
+        for orf in orfs:
+            if (orf.end - orf.start) < 60:
+                continue
+            orfs_filtered.add(orf)
+        nearby_orfs |= orfs_filtered
     return nearby_orfs
 
 
