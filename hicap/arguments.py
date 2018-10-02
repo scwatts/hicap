@@ -47,7 +47,8 @@ def get_args():
     parser_other.add_argument('--log_fp', type=pathlib.Path, help='Record logging messages to file')
     parser_other.add_argument('--debug', action='store_const', dest='log_level', const=logging.DEBUG,
                               default=logging.INFO, help='Print debug messages')
-    parser_other.add_argument('-v', '--version', action='version', version='%(prog)s {}'.format(__version__))
+    parser_other.add_argument('-v', '--version', action='version', version='%(prog)s {}'.format(__version__),
+                              help='Show version number and exit')
     parser_other.add_argument('-h', '--help', action='help', help='Show this help message and exit')
     parser_other.add_argument('--help_all', action='store_true', help='Display extended help')
 
