@@ -49,7 +49,7 @@ def select_best_genes(hits, distance):
 def perform_selection(hits, serotype):
     # Keep singular hit
     if len(hits) <= 1:
-        return hits.pop()
+        return list(hits)[0]
     # Select the orfs first hit of the serotype
     hits_sorted = sorted(hits, key=lambda h: h.evalue)
     for hit in hits_sorted:
