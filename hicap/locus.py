@@ -157,7 +157,7 @@ def collect_nearby_orfs(region_groups, orfs_all):
         # Apply some sanity filtering here - not exposed to user
         orfs_filtered = set()
         for orf in orfs:
-            if (orf.end - orf.start) < 60:
+            if (orf.end - orf.start) <= 100:
                 continue
             orfs_filtered.add(orf)
         nearby_orfs |= orfs_filtered

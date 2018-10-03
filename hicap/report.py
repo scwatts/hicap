@@ -192,7 +192,7 @@ def create_genbank_record(region_groups, nearby_orfs, fasta_fp):
             qualifiers = {'gene': hit.sseqid, 'region': region}
             if hit.broken:
                 qualifiers['note'] = 'fragment'
-            feature_start = hit.orf.start - position_delta
+            feature_start = hit.orf.start - position_delta if (hit.orf.start - position_delta) > 1 else 1
             feature_end = hit.orf.end - position_delta
             feature_loc = Bio.SeqFeature.FeatureLocation(start=feature_start, end=feature_end, strand=hit.orf.strand)
             feature = Bio.SeqFeature.SeqFeature(location=feature_loc, type='CDS', qualifiers=qualifiers)
@@ -211,7 +211,7 @@ def create_genbank_record(region_groups, nearby_orfs, fasta_fp):
         for orf in sorted(orfs, key=lambda o: o.start):
             orf_counter += 1
             qualifiers = {'gene': 'orf_%s' % orf_counter, 'region': 'none'}
-            feature_start = orf.start - position_delta
+            feature_start = orf.start - position_delta if (orf.start - position_delta) > 1 else 1
             feature_end = orf.end - position_delta
             feature_loc = Bio.SeqFeature.FeatureLocation(start=feature_start, end=feature_end, strand=orf.strand)
             feature = Bio.SeqFeature.SeqFeature(location=feature_loc, type='CDS', qualifiers=qualifiers)
@@ -264,7 +264,7 @@ def create_graphic(records, prefix):
                                        border=gene_border, label_position=strand,
                                        label_angle=0, label_size=LABEL_SIZE, color=gene_colour)
 
-        # TODO: check that height scaling is appropriate
+        # TODO: Scale width with size
         # TODO: add contig boundaries symbols
         height = len(records) * 150
         end = max(len(record) for record in records)
