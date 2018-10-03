@@ -15,7 +15,7 @@ SCHEME = {
 SEROTYPES = {
         'type_a': {'ac1', 'ac2', 'ac3', 'ac4'},
         'type_b': {'bc1', 'bc2', 'bc3', 'bc4'},
-        'type_c': {'cc1', 'cc2', 'cc3'},
+        'type_c': {'cc1', 'cc2', 'cc3', 'cc4'},
         'type_d': {'dc1', 'dc2', 'dc3', 'dc4', 'dc5'},
         'type_e': {'ec1', 'ec2', 'ec3', 'ec4', 'ec5', 'ec6', 'ec7', 'ec8'},
         'type_f': {'fc1', 'fc2', 'fc3'},
