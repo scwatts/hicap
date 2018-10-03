@@ -25,7 +25,7 @@ SEQ_PADDING = 1000
 COLOURS_COMPLETE = {'one': '#7bcebe',
                     'two': '#f9958b',
                     'three': '#ffe589',
-                    'none': '#999999',
+                    'none': '#d3d3d3',
                    }
 COLOURS_BROKEN= {'one': '#8fa8a3',
                   'two': '#d3a7a2',
@@ -249,14 +249,19 @@ def create_graphic(records, prefix):
                 continue
             # Accept quals as list or single item for interop
             region = get_qualifier(feature.qualifiers['region'])
-            gene_name = get_qualifier(feature.qualifiers['gene'])
+            if region!= 'none':
+                gene_name = get_qualifier(feature.qualifiers['gene'])
+                gene_border = reportlab.lib.colors.black
+            else:
+                gene_name = ''
+                gene_border = reportlab.lib.colors.grey
             if 'note' in feature.qualifiers and get_qualifier(feature.qualifiers['note']) == 'fragment':
                 gene_colour = COLOURS_BROKEN[region]
             else:
                 gene_colour = COLOURS_COMPLETE[region]
             strand = 'start' if feature.strand == 1 else 'end'
             track_features.add_feature(feature, sigil='BIGARROW', label=True, name=gene_name,
-                                       border=reportlab.lib.colors.black, label_position=strand,
+                                       border=gene_border, label_position=strand,
                                        label_angle=0, label_size=LABEL_SIZE, color=gene_colour)
 
         # TODO: check that height scaling is appropriate
