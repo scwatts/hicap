@@ -102,8 +102,7 @@ def break_most_frequent_type_tie(counts, most_frequent_serotypes):
     for orf, orf_hits in orf_hits.items():
         if len(orf_hits) <= 1:
             continue
-        best_hit = max(orf_hits, key=lambda k: k.bitscore)
+        best_hit = max(orf_hits, key=lambda k: k.bitscore / k.length)
         best_hit_serotype = database.get_serotype_group(best_hit.sseqid)
-        serotype_bitscores[best_hit_serotype] += 1
-    # Ignore any breakable ties
+        serotype_bitscores[best_hit_serotype] += best_hit.bitscore / best_hit.length
     return max(serotype_bitscores, key=lambda k: serotype_bitscores[k])
