@@ -56,7 +56,8 @@ def create_report(region_groups, nearby_orfs, fasta_fp, prefix, output_dir):
     # Report
     output_report_fp = pathlib.Path(output_dir, '%s.tsv' % prefix)
     summary_data = create_summary(region_groups)
-    write_summary(summary_data, output_report_fp)
+    with output_report_fp.open('w') as fh:
+        write_summary(summary_data, fh)
 
     # Genbank - create
     # Genbank spec requires contig names/ locus names of less than 20 characters but
@@ -114,26 +115,30 @@ def create_summary(region_groups):
     return summary_data
 
 
-def write_summary(data, fp):
-    with fp.open('w') as fh:
-        attributes = list()
-        print('#', ','.join(data.serotypes), sep='', file=fh)
-        if any(region_complete[0] for region_complete in data.completeness.values()):
-            attributes.append('missing_genes')
-        else:
-            attributes.append('full_gene_complement')
-        if any(data.truncated_genes.values()):
-            attributes.append('truncated_genes')
-        if data.multiple_contigs:
-            attributes.append('fragmented_locus')
-        if data.duplicated:
-            attributes.append('duplicated')
-        print('#', end='', file=fh)
-        print(*attributes, sep=',', file=fh)
-        for contig, contig_hits in data.hits_by_contig.items():
-            hits_sorted = sorted(contig_hits, key=lambda k: k.orf.start)
-            gene_names = get_gene_names(hits_sorted)
-            print(contig, ','.join(gene_names), sep='\t', file=fh)
+def write_summary(data, fh):
+    attributes = list()
+    print('#', ','.join(data.serotypes), sep='', file=fh)
+    if any(region_complete[0] for region_complete in data.completeness.values()):
+        attributes.append('missing_genes')
+    else:
+        attributes.append('full_gene_complement')
+    if any(data.truncated_genes.values()):
+        attributes.append('truncated_genes')
+    if data.multiple_contigs:
+        attributes.append('fragmented_locus')
+    if data.duplicated:
+        attributes.append('duplicated')
+    print('#', end='', file=fh)
+    print(*attributes, sep=',', file=fh)
+    print('#', end='', file=fh)
+    print('contig', 'start', 'end', 'genes', sep='\t', file=fh)
+    for contig, contig_hits in data.hits_by_contig.items():
+        hits_sorted = sorted(contig_hits, key=lambda k: k.orf.start)
+        hits_bounds = [b for hit in hits_sorted for b in (hit.orf.start, hit.orf.end)]
+        region_start = min(hits_bounds)
+        region_end = max(hits_bounds)
+        gene_names = get_gene_names(hits_sorted)
+        print(contig, region_start, region_end, ','.join(gene_names), sep='\t', file=fh)
 
 
 def get_gene_names(hits):
