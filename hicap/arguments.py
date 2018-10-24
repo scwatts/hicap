@@ -36,12 +36,12 @@ def get_args():
     # Parameters
     parser_params.add_argument('--gene_coverage', default=0.80, type=float,
                                help='Minimum percentage coverage to consider a single gene complete. [default: 0.80]')
-    parser_params.add_argument('--gene_identity', default=0.75, type=float,
-                               help='Minimum percentage identity to consider a single gene complete. [default: 0.75]')
+    parser_params.add_argument('--gene_identity', default=0.70, type=float,
+                               help='Minimum percentage identity to consider a single gene complete. [default: 0.70]')
     parser_params.add_argument('--broken_gene_length', default=60, type=int,
                                help='Minimum length to consider a broken gene. [default: 60]')
-    parser_params.add_argument('--broken_gene_identity', default=0.90, type=float,
-                               help='Minimum percentage identity to consider a broken gene. [default: 0.90]')
+    parser_params.add_argument('--broken_gene_identity', default=0.80, type=float,
+                               help='Minimum percentage identity to consider a broken gene. [default: 0.80]')
 
     # Other
     parser_other.add_argument('--log_fp', type=pathlib.Path, help='Record logging messages to file')
