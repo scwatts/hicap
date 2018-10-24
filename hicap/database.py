@@ -38,7 +38,7 @@ def filter_hits(hits, coverage_min=None, identity_min=None, length_min=None):
     '''Filter hits using provided thresholds'''
     hits_filtered = set()
     for hit in hits:
-        if identity_min and hit.pident < identity_min:
+        if identity_min and hit.pident < (identity_min * 100):
             continue
         if coverage_min and hit.length / hit.slen < coverage_min:
             continue
