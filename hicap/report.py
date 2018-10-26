@@ -31,12 +31,12 @@ class SummaryData:
         self.hits_by_contig = None
 
 
-def create_report(region_groups, nearby_orfs, fasta_fp, prefix, output_dir):
+def write_outputs(region_groups, nearby_orfs, fasta_fp, prefix, output_dir):
     # Report
     output_report_fp = pathlib.Path(output_dir, '%s.tsv' % prefix)
     summary_data = create_summary(region_groups)
     with output_report_fp.open('w') as fh:
-        write_summary(summary_data, fh)
+        write_summary(summary_data, prefix, fh)
 
     # Genbank - create
     # Genbank spec requires contig names/ locus names of less than 20 characters but
@@ -94,9 +94,19 @@ def create_summary(region_groups):
     return summary_data
 
 
-def write_summary(data, fh):
+def write_summary(data, prefix, fh):
+    # Header
+    header = ('isolate', 'predicted_serotype', 'attributes', 'genes_identified', 'locus_location',
+              'region_I_genes', 'region_II_genes', 'region_III_genes')
+    print('#', end='', file=fh)
+    print(*header, sep='\t', file=fh)
+
+    # Isolate and predict serotypes
+    print(prefix, end='\t', file=fh)
+    print(','.join(data.serotypes), end='\t', file=fh)
+
+    # Locus attributes
     attributes = list()
-    print('#', ','.join(data.serotypes), sep='', file=fh)
     if any(region_complete[0] for region_complete in data.completeness.values()):
         attributes.append('missing_genes')
     else:
@@ -107,17 +117,26 @@ def write_summary(data, fh):
         attributes.append('fragmented_locus')
     if data.duplicated:
         attributes.append('duplicated')
-    print('#', end='', file=fh)
-    print(*attributes, sep=',', file=fh)
-    print('#', end='', file=fh)
-    print('contig', 'start', 'end', 'genes', sep='\t', file=fh)
+    print(','.join(attributes), end='\t', file=fh)
+
+    # Genes found and contigs with location
+    contig_genes = dict()
+    contig_bounds = dict()
     for contig, contig_hits in data.hits_by_contig.items():
         hits_sorted = sorted(contig_hits, key=lambda k: k.orf.start)
-        hits_bounds = [b for hit in hits_sorted for b in (hit.orf.start, hit.orf.end)]
-        region_start = min(hits_bounds)
-        region_end = max(hits_bounds)
-        gene_names = get_gene_names(hits_sorted)
-        print(contig, region_start, region_end, ','.join(gene_names), sep='\t', file=fh)
+        contig_genes[contig] = ','.join(get_gene_names(hits_sorted))
+        contig_bounds[contig] = '%s:%s-%s' % (contig, hits_sorted[0].orf.start, hits_sorted[-1].orf.end)
+    print(*contig_genes.values(), sep=';', end='\t', file=fh)
+    print(*contig_bounds.values(), sep=';', end='\t', file=fh)
+
+    # Genes missing
+    missing_genes = dict()
+    for region, (genes, found, expected) in data.completeness.items():
+        text = '%s/%s' % (found, expected)
+        if genes:
+            text = '%s (missing: %s)' % (text, ','.join(genes))
+        missing_genes[region] = text
+    print(*missing_genes.values(), sep='\t', file=fh)
 
 
 def get_gene_names(hits):
