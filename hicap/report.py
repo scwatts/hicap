@@ -230,11 +230,11 @@ def collect_contig_sequences(fasta, hits, nearby_orfs):
         # Apply sequencing padding - extend if we do not extend beyond nearby orfs
         start = orf_start.start - SEQ_PADDING
         if start > orfs_sorted[0].start:
-            start = orfs_sorted[0].start
+            start = orfs_sorted[0].start - 16
         start = max(start, 0)
         end = orf_end.end + SEQ_PADDING
         if end < orfs_sorted[-1].end:
-            end = orfs_sorted[-1].end
+            end = orfs_sorted[-1].end + 16
         end = min(end, len(fasta[contig]))
         contig_sequences[contig] = (start, fasta[contig][start:end])
     return contig_sequences
