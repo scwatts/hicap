@@ -1,23 +1,14 @@
-import logging
 import pathlib
-import re
 
 
-import Bio.Alphabet
-import Bio.Seq
-import Bio.SeqRecord
-import Bio.SeqFeature
 import Bio.SeqIO
-import Bio.Graphics.GenomeDiagram
 
 
 from . import database
+from . import genbank
+from . import graphic
 from . import locus
 from . import utility
-from . import graphic
-
-
-SEQ_PADDING = 1000
 
 
 class SummaryData:
@@ -49,8 +40,8 @@ def write_outputs(region_groups, nearby_orfs, args):
     # generating the graphic
     fasta = utility.read_fasta(args.query_fp)
     hits_all = [hit for group in region_groups.values() for hit in group.hits]
-    contig_sequences = collect_contig_sequences(fasta, hits_all, nearby_orfs)
-    genbank_data = create_genbank_record(hits_all, nearby_orfs, contig_sequences)
+    contig_sequences = genbank.collect_contig_sequences(fasta, hits_all, nearby_orfs)
+    genbank_data = genbank.create_genbank_record(hits_all, nearby_orfs, contig_sequences)
 
     # Graphic
     # TODO: legend?
@@ -60,14 +51,20 @@ def write_outputs(region_groups, nearby_orfs, args):
     with output_svg_fp.open('w') as fh:
         fh.write(svg_data)
 
-    # Genbank - write
+    # Genbank - finalise and write
     output_gbk_fp = pathlib.Path(args.output_dir, '%s.gbk' % prefix)
+    # Use full input sequence if requested
     if args.full_sequence:
         contig_sequences = {contig: (0, fasta[contig]) for contig in fasta}
-        genbank_data = create_genbank_record(hits_all, nearby_orfs, contig_sequences)
+        genbank_data = genbank.create_genbank_record(hits_all, nearby_orfs, contig_sequences)
+    # Truncate names for legal genbank format
     for record in genbank_data:
         record.name = record.name.split()[0][:15]
         record.id = record.id.split()[0][:15]
+    # Add misc_feature for cap locus (or locus fragments) - done in place
+    genbank.add_locus_feature(genbank_data)
+    for record in genbank_data:
+        record.features = sorted(record.features, key=lambda f: f.location.start)
     with output_gbk_fp.open('w') as fh:
         Bio.SeqIO.write(genbank_data, fh, 'genbank')
 
@@ -166,90 +163,10 @@ def is_duplicated(hits):
     # Sometimes a single gene is broken into multiple ORFs but wrt to duplication should
     # be considered as a single unit. We do this by setting a bound ~ to expected gene len
     for gene, gene_hits in genes_hits.items():
-        hit_first, *hits_sorted = sorted(gene_hits, key=lambda hit: min(hit.orf.start, hit.orf.end))
+        hit_first, *hits_sorted = sorted(gene_hits, key=lambda h: min(h.orf.start, h.orf.end))
         upper_bound = min(hit_first.orf.start, hit_first.orf.end) + hit_first.slen * 1.5
         gene_counts[gene] = 1
         for hit in hits_sorted:
             if max(hit.orf.start, hit.orf.end) >= upper_bound:
                 gene_counts[gene] += 1
     return any(gene_count > 1 for gene_count in gene_counts.values())
-
-
-def create_genbank_record(hits_all, nearby_orfs, contig_sequences):
-    # Get contig sequences
-    logging.info('Creating genbank records')
-
-    # Create base records
-    position_deltas = dict()
-    gb_records = dict()
-    for contig, (position_delta, sequence) in contig_sequences.items():
-        sequence_record=Bio.Seq.Seq(sequence, Bio.Alphabet.IUPAC.unambiguous_dna)
-        gb_records[contig] = Bio.SeqRecord.SeqRecord(seq=sequence_record, name=contig)
-        position_deltas[contig] = position_delta
-
-    # Add hits
-    for contig, contig_hits in locus.sort_hits_by_contig(hits_all).items():
-        position_delta = position_deltas[contig]
-        for hit in sorted(contig_hits, key=lambda k: k.orf.start):
-            # Get appropriate representation of gene name
-            region = hit.region if hit.region else locus.get_gene_region(hit.sseqid)
-            qualifiers = {'gene': hit.sseqid, 'region': region}
-            if hit.broken:
-                qualifiers['note'] = 'fragment'
-            # Create feature record
-            feature = create_feature(hit.orf.start, hit.orf.end, position_delta, hit.orf.strand, qualifiers)
-            gb_records[contig].features.append(feature)
-
-    # Add ORFs
-    orf_counter = 0
-    for contig, orfs in locus.sort_orfs_by_contig(nearby_orfs).items():
-        position_delta = position_deltas[contig]
-        for orf in sorted(orfs, key=lambda o: o.start):
-            orf_counter += 1
-            qualifiers = {'gene': 'orf_%s' % orf_counter, 'region': 'none'}
-            # Create feature record
-            feature = create_feature(orf.start, orf.end, position_delta, orf.strand, qualifiers)
-            gb_records[contig].features.append(feature)
-
-    # Sort features by location
-    for contig in gb_records.keys():
-        gb_records[contig].features = sorted(gb_records[contig].features, key=lambda f: f.location.start)
-
-    return [record for record in gb_records.values()]
-
-
-def collect_contig_sequences(fasta, hits, nearby_orfs):
-    # Sort all ORFs by contig
-    hit_orfs = {hit.orf for hit in hits}
-    contig_orfs = locus.sort_orfs_by_contig(hit_orfs | nearby_orfs)
-    contig_sequences = dict()
-    for contig, orfs in contig_orfs.items():
-        # Get the most left and most right ORF associated with a hit
-        orfs_sorted = sorted(orfs, key=lambda o: o.start)
-        orf_start = None
-        orf_end = None
-        for orf in orfs_sorted:
-            if orf in nearby_orfs:
-                continue
-            orf_end = orf
-            if not orf_start:
-                orf_start = orf
-
-        # Apply sequencing padding - extend if we do not extend beyond nearby orfs
-        start = orf_start.start - SEQ_PADDING
-        if start > orfs_sorted[0].start:
-            start = orfs_sorted[0].start - 16
-        start = max(start, 0)
-        end = orf_end.end + SEQ_PADDING
-        if end < orfs_sorted[-1].end:
-            end = orfs_sorted[-1].end + 16
-        end = min(end, len(fasta[contig]))
-        contig_sequences[contig] = (start, fasta[contig][start:end])
-    return contig_sequences
-
-
-def create_feature(start, end, delta, strand, qualifiers):
-    feature_start = start - delta if (start - delta) > 1 else 1
-    feature_end = end - delta
-    feature_loc = Bio.SeqFeature.FeatureLocation(start=feature_start, end=feature_end, strand=strand)
-    return Bio.SeqFeature.SeqFeature(location=feature_loc, type='CDS', qualifiers=qualifiers)
