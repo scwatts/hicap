@@ -17,9 +17,9 @@ COLOURS_COMPLETE = {'one': '#7bcebe',
                     'two': '#f9958b',
                     'three': '#ffe589',
                     'none': '#d3d3d3'}
-COLOURS_BROKEN= {'one': '#8fa8a3',
-                 'two': '#d3a7a2',
-                 'three': '#d8ceab'}
+COLOURS_BROKEN = {'one': '#8fa8a3',
+                  'two': '#d3a7a2',
+                  'three': '#d8ceab'}
 
 LABEL_SIZE = 12
 TRACK_LABEL_SIZE = 18
@@ -39,17 +39,18 @@ def create_graphic(records, prefix):
             if feature.type != 'CDS':
                 continue
             # Accept quals as list or single item for interop
-            region = get_qualifier(feature.qualifiers['region'])
-            if region!= 'none':
+            notes = process_notes(get_qualifier(feature.qualifiers['note']))
+            if notes['region'] != 'none':
                 gene_name = get_qualifier(feature.qualifiers['gene'])
                 gene_border = reportlab.lib.colors.black
             else:
                 gene_name = ''
                 gene_border = reportlab.lib.colors.grey
-            if 'note' in feature.qualifiers and get_qualifier(feature.qualifiers['note']) == 'fragment':
-                gene_colour = COLOURS_BROKEN[region]
+            if notes['fragment']:
+                gene_colour = COLOURS_BROKEN[notes['region']]
             else:
-                gene_colour = COLOURS_COMPLETE[region]
+                gene_colour = COLOURS_COMPLETE[notes['region']]
+
             strand = 'start' if feature.strand == 1 else 'end'
             track_features.add_feature(feature, sigil='BIGARROW', label=True, name=gene_name,
                                        border=gene_border, label_position=strand,
@@ -61,6 +62,16 @@ def create_graphic(records, prefix):
         end = max(len(record) for record in records)
         graphic.draw(format='linear', pagesize=(1800, height), fragments=1, track_size=0.30, start=0, end=end)
     return graphic
+
+
+def process_notes(note_str):
+    notes = {'region': 'none', 'fragment': False}
+    for note_token in note_str.split(';'):
+        if note_token.startswith('region_'):
+            notes['region'] = note_token.replace('region_', '')
+        elif note_token == 'fragment':
+            notes['fragment'] = True
+    return notes
 
 
 def patch_graphic(graphic_data):
