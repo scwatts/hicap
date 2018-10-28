@@ -31,29 +31,40 @@ class SummaryData:
         self.hits_by_contig = None
 
 
-def write_outputs(region_groups, nearby_orfs, fasta_fp, prefix, output_dir):
+def write_outputs(region_groups, nearby_orfs, args):
     # Report
-    output_report_fp = pathlib.Path(output_dir, '%s.tsv' % prefix)
+    prefix = args.query_fp.stem
+    output_report_fp = pathlib.Path(args.output_dir, '%s.tsv' % prefix)
     summary_data = create_summary(region_groups)
     with output_report_fp.open('w') as fh:
         write_summary(summary_data, prefix, fh)
 
     # Genbank - create
+    # We allow the user to request the full input sequence to be present in the output. The most
+    # simple approach is therefore to generate a genbank record set for the image (which will
+    # always have a substring of the full FASTA sequence) and another genbank record set for the
+    # genbank output file if required
     # Genbank spec requires contig names/ locus names of less than 20 characters but
     # we want full contigs names in the graphic. So we'll truncate the names after
     # generating the graphic
-    output_gbk_fp = pathlib.Path(output_dir, '%s.gbk' % prefix)
-    genbank_data = create_genbank_record(region_groups, nearby_orfs, fasta_fp)
+    fasta = utility.read_fasta(args.query_fp)
+    hits_all = [hit for group in region_groups.values() for hit in group.hits]
+    contig_sequences = collect_contig_sequences(fasta, hits_all, nearby_orfs)
+    genbank_data = create_genbank_record(hits_all, nearby_orfs, contig_sequences)
 
     # Graphic
     # TODO: legend?
-    output_svg_fp = pathlib.Path(output_dir, '%s.svg' % prefix)
+    output_svg_fp = pathlib.Path(args.output_dir, '%s.svg' % prefix)
     graphic_data = graphic.create_graphic(genbank_data, prefix)
     svg_data = graphic.patch_graphic(graphic_data)
     with output_svg_fp.open('w') as fh:
         fh.write(svg_data)
 
     # Genbank - write
+    output_gbk_fp = pathlib.Path(args.output_dir, '%s.gbk' % prefix)
+    if args.full_sequence:
+        contig_sequences = {contig: (0, fasta[contig]) for contig in fasta}
+        genbank_data = create_genbank_record(hits_all, nearby_orfs, contig_sequences)
     for record in genbank_data:
         record.name = record.name.split()[0][:15]
         record.id = record.id.split()[0][:15]
@@ -164,19 +175,16 @@ def is_duplicated(hits):
     return any(gene_count > 1 for gene_count in gene_counts.values())
 
 
-def create_genbank_record(region_groups, nearby_orfs, fasta_fp):
+def create_genbank_record(hits_all, nearby_orfs, contig_sequences):
     # Get contig sequences
     logging.info('Creating genbank records')
-    fasta = utility.read_fasta(fasta_fp)
-    hits_all = [hit for group in region_groups.values() for hit in group.hits]
-    contig_sequences = collect_contig_sequences(fasta, hits_all, nearby_orfs)
 
     # Create base records
     position_deltas = dict()
     gb_records = dict()
     for contig, (position_delta, sequence) in contig_sequences.items():
         sequence_record=Bio.Seq.Seq(sequence, Bio.Alphabet.IUPAC.unambiguous_dna)
-        gb_records[contig] = Bio.SeqRecord.SeqRecord(seq=sequence_record, name=contig, id=fasta_fp.stem)
+        gb_records[contig] = Bio.SeqRecord.SeqRecord(seq=sequence_record, name=contig)
         position_deltas[contig] = position_delta
 
     # Add hits

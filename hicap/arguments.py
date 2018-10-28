@@ -24,7 +24,7 @@ def get_args():
     parser_params = parser_parent.add_argument_group('Search parameters')
     parser_other = parser_parent.add_argument_group('Other')
 
-    # Inputs
+    # Inputs and outputs
     database_dir = pathlib.Path(__file__).parent / 'database'
     parser_files.add_argument('-q', '--query_fp', required=True, type=pathlib.Path,
                               help='Input FASTA query')
@@ -32,6 +32,9 @@ def get_args():
                               help='Output directory')
     parser_files.add_argument('-d', '--database_dir', required=False, type=pathlib.Path, default=database_dir,
                               help='Directory containing locus database. [default: %s]' % database_dir)
+    parser_files.add_argument('-s', '--full_sequence', required=False, action='store_true',
+                              help='Write the full input sequence out to the genbank file rather '
+                              'than just the region surrounding and including the locus')
 
     # Parameters
     parser_params.add_argument('--gene_coverage', default=0.80, type=float,

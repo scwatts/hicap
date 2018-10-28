@@ -70,4 +70,4 @@ def main():
     nearby_orfs = locus.collect_nearby_orfs(region_groups, orfs_all)
 
     # Generate output data and files
-    report.write_outputs(region_groups, nearby_orfs, args.query_fp, args.query_fp.stem, args.output_dir)
+    report.write_outputs(region_groups, nearby_orfs, args)
