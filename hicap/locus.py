@@ -116,12 +116,12 @@ def find_adjacent_fragments(hits, region, hits_remaining):
 
         # Apply some sanity filtering here - not exposed to user
         hits_filtered = set()
-        for hit in hits_collected:
-            if hit.evalue >= 0.01:
+        for hit_collected in hits_collected:
+            if hit_collected.evalue >= 0.01:
                 continue
-            if hit.length <= 60:
+            if hit_collected.length <= 60:
                 continue
-            hits_filtered.add(hit)
+            hits_filtered.add(hit_collected)
 
         # Select best hits - Just being careful here; in most cases this will be unnecessary
         if region in {'one', 'three'}:
