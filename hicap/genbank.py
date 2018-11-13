@@ -124,5 +124,5 @@ def collect_contig_sequences(fasta, hits, nearby_orfs):
 def create_cds_feature(start, end, delta, strand, qualifiers):
     feature_start = start - delta if (start - delta) > 1 else 1
     feature_end = end - delta
-    feature_loc = Bio.SeqFeature.FeatureLocation(start=feature_start, end=feature_end, strand=strand)
+    feature_loc = Bio.SeqFeature.FeatureLocation(start=feature_start-1, end=feature_end, strand=strand)
     return Bio.SeqFeature.SeqFeature(location=feature_loc, type='CDS', qualifiers=qualifiers)
