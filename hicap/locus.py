@@ -198,7 +198,7 @@ def run_nearby_orf_collection(contig, contig_hits, orfs_remaining):
     range_end = hits_end + NEARBY_FLANK_DIST
 
     # The cap locus can be split and found at either end of a large contig, check for this
-    if range_end - range_start > 30000:
+    if range_end - range_start > 60000:
         last_position = 0
         contig_hits_sorted = sorted(contig_hits, key=lambda h: h.orf.start)
         for i, hit in enumerate(contig_hits_sorted):
