@@ -100,11 +100,15 @@ def find_proximal_fragments(region_groups, hits_remaining, contig_fasta):
     contig_ranges = get_proximal_ranges(hits, contig_fasta)
 
     # Find hits within the locus ranges
+    hit_orfs = {hit.orf for hit in hits}
     hits_fragmented = set()
-    for contig, hits in sort_hits_by_contig(hits_remaining).items():
+    for contig, contig_hits in sort_hits_by_contig(hits_remaining).items():
         if contig not in contig_ranges:
             continue
-        for hit in hits:
+        for hit in contig_hits:
+            # Skip hit if ORF is already assigned a hit or is not in any locus range
+            if hit.orf in hit_orfs:
+                continue
             if not any(hit.orf.start in r or hit.orf.end in r for r in contig_ranges[contig]):
                 continue
             # Apply some sanity filtering here - not exposed to user
