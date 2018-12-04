@@ -81,11 +81,10 @@ def locate_fragmented_region_two(groups, hits_remaining, filter_params):
     hits_candidate = set()
     for region in ('one', 'three'):
         for contig, contig_hits in sort_hits_by_contig(groups[region].hits).items():
-            getter = lambda h: h.orf
-            hits_start, hits_end = get_elements_bounds(contig_hits, getter)
+            hits_start, hits_end = get_elements_bounds(contig_hits)
             range_start = hits_start - RTWO_FLANK_DIST
             range_end = hits_end + RTWO_FLANK_DIST
-            hits_candidate |= collect_elements_in_bounds(range_start, range_end, contig, hits_rtwo_filtered, getter)
+            hits_candidate |= collect_elements_in_bounds(range_start, range_end, contig, hits_rtwo_filtered)
 
     # Select best hits and set them to broken
     hits_remaining -= hits_candidate
@@ -110,8 +109,7 @@ def find_adjacent_fragments(hits, region, hits_remaining):
         else:
             start = hit.orf.start - (hit.slen - hit.send) + 1
             end = hit.orf.end + hit.sstart + 1
-        getter = lambda h: h.orf
-        hits_collected = collect_elements_in_bounds(start, end, hit.orf.contig, hits_remaining, getter)
+        hits_collected = collect_elements_in_bounds(start, end, hit.orf.contig, hits_remaining)
         hits_collected = {h for h in hits_collected if h.sseqid == hit.sseqid and h.orf not in hits_orfs}
 
         # Apply some sanity filtering here - not exposed to user
@@ -148,8 +146,7 @@ def collect_nearby_orfs(region_groups, orfs_all):
 
     nearby_orfs = set()
     for contig, contig_hits in sort_hits_by_contig(hits_selected).items():
-        getter_hit = lambda h: h.orf
-        hits_start, hits_end = get_elements_bounds(contig_hits, getter_hit)
+        hits_start, hits_end = get_elements_bounds(contig_hits)
         range_start = hits_start - NEARBY_FLANK_DIST
         range_end = hits_end + NEARBY_FLANK_DIST
         # TODO: we should check if these nearby ORFs are _somehow_ cap locus specific genes
@@ -164,15 +161,21 @@ def collect_nearby_orfs(region_groups, orfs_all):
     return nearby_orfs
 
 
-def get_elements_bounds(elements, getter):
-    # This getter confusion saves ~60 lines of repeating code. worth it? that's highly doubtful
-    elements_sorted = sorted(elements, key=lambda k: getter(k).start)
-    start = min(getter(elements_sorted[0]).start, getter(elements_sorted[0]).end)
-    end = max(getter(elements_sorted[-1]).start, getter(elements_sorted[-1]).end)
+def get_elements_bounds(elements):
+    elements_sorted = sorted(elements, key=lambda k: k.orf.start)
+    start = min(elements_sorted[0].orf.start, elements_sorted[0].orf.end)
+    end = max(elements_sorted[-1].orf.start, elements_sorted[-1].orf.end)
     return start, end
 
 
-def collect_elements_in_bounds(start, end, contig, elements, getter=lambda e: e):
+def collect_elements_in_bounds(start, end, contig, elements):
+    # Apply some lambda madness
+    test_element = list(elements)[0]
+    if hasattr(test_element, 'start'):
+        getter = lambda e: e
+    elif hasattr(test_element, 'orf'):
+        getter = lambda e: e.orf
+
     # TODO: optimise if required
     elements_selected = set()
     for element in elements:
