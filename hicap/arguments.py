@@ -50,6 +50,7 @@ def get_args():
                                help='Minimum percentage identity to consider a broken gene. [default: 0.80]')
 
     # Other
+    parser_other.add_argument('--threads', type=int, default=1, help='Threads to use for BLAST+. [default: 1]')
     parser_other.add_argument('--log_fp', type=pathlib.Path, help='Record logging messages to file')
     parser_other.add_argument('--debug', action='store_const', dest='log_level', const=logging.DEBUG,
                               default=logging.INFO, help='Print debug messages')
@@ -85,6 +86,7 @@ def check_args(args):
         sys.exit(1)
 
     # TODO: check that all database files and prodigal model exist
+    # TODO: ensure the number of threads is sane
 
     # Input format
     try:

@@ -25,18 +25,10 @@ def main():
                ' These will be truncated in the genbank output file')
         logging.warning(msg)
 
-    # Collect ORFs from input assembly
+    # Collect ORFs from input assembly then align ORFs to database and assign ORFs to hits
+    logging.info('Searching database for matches')
     orfs_all = annotation.collect_orfs(args.query_fp, args.model_fp)
-
-    # Align ORFs to databases using BLAST
-    with tempfile.TemporaryDirectory() as dh:
-        orfs_fp = pathlib.Path(dh, 'orfs.fasta')
-        with orfs_fp.open('w') as fh:
-            for i, orf in enumerate(orfs_all):
-                print('>%s' % i, orf.sequence, sep='\n', file=fh)
-        hits = database.search(orfs_fp, args.database_fps)
-
-    # Set the respective ORF for each hit
+    hits = database.search(orfs_all, args.database_fps, args.threads)
     hits = database.assign_hit_orfs(hits, orfs_all)
 
     # Find complete hits

@@ -1,5 +1,9 @@
+import concurrent.futures
 import logging
+import math
+import pathlib
 import tempfile
+
 
 
 from . import alignment
@@ -22,9 +26,33 @@ SEROTYPES = {
         }
 
 
-def search(query_fp, database_fps):
+def search(orfs_all, database_fps, threads):
+    # Generate to split ORFs into even groups for each thread
+    n = math.ceil(len(orfs_all) / threads)
+    orfs_split_gen = (orfs_all[i:i+n] for i in range(0, len(orfs_all), n))
+
+    # Output data for each process and run alignment
+    with tempfile.TemporaryDirectory() as dh:
+        # Write
+        orf_num = 0
+        query_fps = list()
+        for i, orfs_group in enumerate(orfs_split_gen, 1):
+            query_fp = pathlib.Path(dh, 'orfs_%s.fasta' % i)
+            query_fps.append(query_fp)
+            with query_fp.open('w') as fh:
+                for orf in orfs_group:
+                    print('>%s' % orf_num, orf.sequence, sep='\n', file=fh)
+                    orf_num += 1
+        # Execute
+        args = ((query_fp, database_fps) for query_fp in query_fps)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:
+            hits_all_sets = [r for r in executor.map(lambda x: run_search(*x), args)]
+    # Collapse into single set and return
+    return {hit for hits in hits_all_sets for hit in hits}
+
+
+def run_search(query_fp, database_fps):
     '''Perform search via alignment of query sequences in provided database files'''
-    logging.info('Searching database for matches')
     hits_all = set()
     for database_fp in database_fps:
         with tempfile.TemporaryDirectory() as dh:
