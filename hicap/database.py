@@ -13,12 +13,12 @@ SCHEME = {
 
 
 SEROTYPES = {
-        'type_a': {'ac1', 'ac2', 'ac3', 'ac4'},
-        'type_b': {'bc1', 'bc2', 'bc3', 'bc4'},
-        'type_c': {'cc1', 'cc2', 'cc3', 'cc4'},
-        'type_d': {'dc1', 'dc2', 'dc3', 'dc4', 'dc5'},
-        'type_e': {'ec1', 'ec2', 'ec3', 'ec4', 'ec5', 'ec6', 'ec7', 'ec8'},
-        'type_f': {'fc1', 'fc2', 'fc3'},
+        'type_a': {'acs1', 'acs2', 'acs3', 'acs4'},
+        'type_b': {'bcs1', 'bcs2', 'bcs3', 'bcs4'},
+        'type_c': {'ccs1', 'ccs2', 'ccs3', 'ccs4'},
+        'type_d': {'dcs1', 'dcs2', 'dcs3', 'dcs4', 'dcs5'},
+        'type_e': {'ecs1', 'ecs2', 'ecs3', 'ecs4', 'ecs5', 'ecs6', 'ecs7', 'ecs8'},
+        'type_f': {'fcs1', 'fcs2', 'fcs3'},
         }
 
 
