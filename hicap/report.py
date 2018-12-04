@@ -45,6 +45,8 @@ def write_outputs(region_groups, nearby_orfs, args):
 
     # Graphic
     # TODO: legend?
+    # Loci on a single contig can be split at either end - rotate for graphic if required
+    graphic.prepare_genbank(genbank_data)
     output_svg_fp = pathlib.Path(args.output_dir, '%s.svg' % prefix)
     graphic_data = graphic.create_graphic(genbank_data, prefix)
     svg_data = graphic.patch_graphic(graphic_data)

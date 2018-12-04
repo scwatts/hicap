@@ -4,6 +4,7 @@ import tempfile
 import xml.etree.ElementTree as ET
 
 
+# TODO remove unused
 import Bio.Alphabet
 import Bio.Seq
 import Bio.SeqRecord
@@ -28,6 +29,36 @@ HPOINTS_RE = re.compile(r'^([0-9.]+)[^,]+, ([0-9.]+).+$')
 VPOINTS_RE = re.compile(r'^.+ ([0-9.]+)$')
 PATH_RE = re.compile(r'^M ([0-9.]+).+?L ([0-9.]+).+Z$')
 LABEL_RE = re.compile(r'^ matrix\(([-10.]+).+? ?([0-9.]+), ?([0-9.]+)\)')
+
+
+def prepare_genbank(records):
+    replace_locus_features = False
+    for record in records:
+        last_position = 0
+        for i, feature in enumerate(record.features):
+            if feature.location.start - last_position > 5000:
+                break
+            last_position = feature.location.end
+        else:
+            # If we don't break, then go to next record
+            continue
+        features_lower = record.features[:i]
+        features_upper = record.features[i:]
+        upper_block_size = len(record.seq) - features_upper[0].location.start
+
+        # Rotate features
+        upper_block_offset = features_upper[0].location.start
+        for feature in features_upper:
+            feature.location._start = Bio.SeqFeature.ExactPosition(feature.location.start - upper_block_offset)
+            feature.location._end = Bio.SeqFeature.ExactPosition(feature.location.end - upper_block_offset)
+        for feature in features_lower:
+            feature.location._start = Bio.SeqFeature.ExactPosition(feature.location.start + upper_block_size)
+            feature.location._end = Bio.SeqFeature.ExactPosition(feature.location.end + upper_block_size)
+        record.features = sorted(record.features, key=lambda f: f.location.start)
+
+        # Rotate sequence
+        record.seq = record.seq[upper_block_offset:] + record.seq[:upper_block_offset]
+    return records
 
 
 def create_graphic(records, prefix):
