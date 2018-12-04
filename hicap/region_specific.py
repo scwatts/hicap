@@ -32,12 +32,8 @@ def select_best_genes(hits, distance):
     serotypes = set()
     orfs_hits = locus.sort_hits_by_orf(hits)
     for orf, orf_hits in orfs_hits.items():
-        # TODO: efficiency could be improved
-        # Get most frequent serotype hit within +/-5 kb of this orf
-        start = orf.start - distance
-        end = orf.end + distance
-        neighbourhood_hits = collect_neighbourhood_hits(start, end, orf.contig, orfs_hits)
-        serotype = most_frequent_serotype(neighbourhood_hits)
+        # Determine serotype current orf belongs to
+        serotype = determine_serotype(orf, orf_hits, distance, orfs_hits)
         serotypes.add(serotype)
 
         # Get the best hit
@@ -61,7 +57,7 @@ def perform_selection(hits, serotype):
 
 
 def collect_neighbourhood_hits(start, end, contig, orfs_hits):
-    orfs_neighbouring = set()
+    orfs_neighbouring = list()
     for orf, orf_hits in orfs_hits.items():
         if contig != orf.contig:
             continue
@@ -69,8 +65,40 @@ def collect_neighbourhood_hits(start, end, contig, orfs_hits):
             continue
         if orf.end > end:
             continue
-        orfs_neighbouring.update(orf_hits)
+        orfs_neighbouring.append(orf_hits)
     return orfs_neighbouring
+
+
+def determine_serotype(orf, orf_hits, distance, orfs_hits):
+    # Check if we have unambiguous hits
+    gene_hits = {orf_hit.sseqid for orf_hit in orf_hits}
+    if len(gene_hits) == 1:
+        return database.get_serotype_group(*gene_hits)
+
+    # Search for any unambiguous hits in the nighbourhood
+    start = orf.start - distance
+    end = orf.end + distance
+    neighbour_orfs_hits = collect_neighbourhood_hits(start, end, orf.contig, orfs_hits)
+    for neighbour_orf_hits in neighbour_orfs_hits:
+        neighbour_gene_hits = {orf_hit.sseqid for orf_hit in neighbour_orf_hits}
+        if len(neighbour_gene_hits) == 1:
+            return database.get_serotype_group(*neighbour_gene_hits)
+
+    # See if there are hits anywhere which are unambiguous
+    all_unambiguous_st = set()
+    for all_orf_hits in orfs_hits.values():
+        all_gene_hits = {orf_hit.sseqid for orf_hit in all_orf_hits}
+        if len(all_gene_hits) == 1:
+            serotype = database.get_serotype_group(*all_gene_hits)
+            all_unambiguous_st.add(serotype)
+    # Unambiguous hits must only be present for one of the ORF hits
+    unambiguous_st = all_unambiguous_st & {database.get_serotype_group(gene) for gene in gene_hits}
+    if len(unambiguous_st) == 1:
+        return list(unambiguous_st)[0]
+
+    # Make best guess
+    neighbourhood_hits = {hit for hits in neighbour_orfs_hits for hit in hits}
+    return most_frequent_serotype(neighbourhood_hits)
 
 
 def most_frequent_serotype(hits):
