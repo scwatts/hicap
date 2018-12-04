@@ -94,49 +94,83 @@ def locate_fragmented_region_two(groups, hits_remaining, filter_params):
     return group
 
 
-def find_adjacent_fragments(hits, region, hits_remaining):
-    hits_orfs = {hit.orf for hit in hits}
-    hits_adjacent = set()
-    for hit in hits:
-        # Only search around broken hits
-        if not hit.broken:
+def find_proximal_fragments(region_groups, hits_remaining, contig_fasta):
+    # Get proximal distances
+    hits = {hit for region_data in region_groups.values() for hit in region_data.hits}
+    contig_ranges = get_proximal_ranges(hits, contig_fasta)
+
+    # Find hits within the locus ranges
+    hits_fragmented = set()
+    for contig, hits in sort_hits_by_contig(hits_remaining).items():
+        if contig not in contig_ranges:
             continue
-
-        # Find all adjacent hits with the same subject gene
-        if hit.sstart < hit.send:
-            start = hit.orf.start - hit.sstart + 1
-            end = hit.orf.end + (hit.slen - hit.send) + 1
-        else:
-            start = hit.orf.start - (hit.slen - hit.send) + 1
-            end = hit.orf.end + hit.sstart + 1
-        hits_collected = collect_elements_in_bounds(start, end, hit.orf.contig, hits_remaining)
-        hits_collected = {h for h in hits_collected if h.sseqid == hit.sseqid and h.orf not in hits_orfs}
-
-        # Apply some sanity filtering here - not exposed to user
-        hits_filtered = set()
-        for hit_collected in hits_collected:
-            if hit_collected.evalue >= 0.01:
+        for hit in hits:
+            if not any(hit.orf.start in r or hit.orf.end in r for r in contig_ranges[contig]):
                 continue
-            if hit_collected.length <= 60:
+            # Apply some sanity filtering here - not exposed to user
+            if hit.bitscore < 200:
                 continue
-            hits_filtered.add(hit_collected)
+            hits_fragmented.add(hit)
 
-        # Select best hits - Just being careful here; in most cases this will be unnecessary
+    # Group by ORF and select best hit
+    hits_selected = {'one': set(), 'two': set(), 'three': set()}
+    for orf, orf_hits in sort_hits_by_orf(hits_fragmented).items():
+        [region] = {database.get_region(hit.sseqid) for hit in orf_hits}
         if region in {'one', 'three'}:
-            hits_selected = region_common.select_best_hits(hits_filtered)
+            [hit_best] = region_common.select_best_hits(orf_hits)
         else:
-            hits_selected = set()
-            serotype = database.get_serotype_group(hit.sseqid)
-            for orf_hits in sort_hits_by_orf(hits_filtered).values():
-                hit_best = region_specific.perform_selection(orf_hits, serotype)
-                hits_selected.add(hit_best)
-        hits_adjacent |= hits_selected
+            serotype = region_specific.determine_serotype(orf, orf_hits, region_specific.NEIGHBOUR_DIST, hits)
+            hit_best = region_specific.perform_selection(orf_hits, serotype)
+        hits_selected[region].add(hit_best)
 
-    # Update hits_remaining and return
-    hits_remaining -= hits_adjacent
-    for hit in hits_adjacent:
-        hit.broken = True
-    return hits_adjacent
+    # Update region_group and hit.broken status
+    for region, hits_fragmented in hits_selected.items():
+        contigs_new = {hit.orf.contig for hit in hits_fragmented}
+        region_groups[region].hits.update(hits_fragmented)
+        region_groups[region].contigs.update(contigs_new)
+        hits_remaining -= hits_fragmented
+        for hit in hits_fragmented:
+            hit.broken = True
+
+
+def get_proximal_ranges(hits, contig_fasta):
+    contig_ranges = dict()
+    for contig, hits in sort_hits_by_contig(hits).items():
+        first_hit, *hits_sorted = sorted(hits, key=lambda h: h.orf.start)
+        start = last_position = first_hit.orf.end
+        contig_ranges[contig] = list()
+        for hit in hits_sorted:
+            if hit.orf.start - last_position > 5000:
+                # Record
+                end_bound = last_position + 5000
+                start_bound = start - 5000
+                contig_ranges[contig].append(range(start_bound, end_bound))
+                # Restart
+                start = hit.orf.start
+            # Update
+            last_position = hit.orf.end
+        # Catch dangling
+        end_bound = last_position + 5000
+        start_bound = start - 5000
+        contig_ranges[contig].append(range(start_bound, end_bound))
+
+    # If are hits near a contig boundary, allow fragments to be found near any contig boundary
+    # TODO: is there a better way to do this without a switch?
+    allow_near_boundary = False
+    for contig, ranges in contig_ranges.items():
+        contig_start_pad = 2000
+        contig_end_pad = len(contig_fasta[contig]) - 2000
+        if any(min(r) <= contig_start_pad or max(r) >= contig_end_pad for r in ranges):
+            allow_near_boundary = True
+            break
+    if allow_near_boundary:
+        # Blindly add additional ranges, may overlap
+        for contig in contig_ranges:
+            right_start = len(contig_fasta[contig]) - 2000
+            contig_ranges[contig].append(range(0, 2000))
+            contig_ranges[contig].append(range(right_start, len(contig_fasta[contig])))
+
+    return contig_ranges
 
 
 def collect_nearby_orfs(region_groups, orfs_all):

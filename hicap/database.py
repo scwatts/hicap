@@ -55,6 +55,18 @@ def assign_hit_orfs(hits, orfs):
     return hits
 
 
+def get_region(gene_name):
+    '''Return region corresponding to gene name'''
+    for region in ('one', 'three'):
+        if gene_name in SCHEME[region]:
+            return region
+    for serotype_comp in SEROTYPES.values():
+        if gene_name in serotype_comp:
+            return 'two'
+    else:
+        raise ValueError('Could not find %s gene in scheme' % gene_name)
+
+
 def get_serotype_group(gene_name):
     '''Return the serotype group of a given region two gene'''
     for serotype, gene_names in SEROTYPES.items():
