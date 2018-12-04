@@ -20,7 +20,7 @@ setuptools.setup(
         license='GPLv3',
         test_suite='tests',
         packages=setuptools.find_packages(),
-        package_data={'hicap': ['database/*fasta']},
+        package_data={'hicap': ['database/*fasta', 'model/prodigal_hi.bin']},
         entry_points={
                 'console_scripts': ['hicap=hicap.main:main'],
             }

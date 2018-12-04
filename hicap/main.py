@@ -26,7 +26,7 @@ def main():
         logging.warning(msg)
 
     # Collect ORFs from input assembly
-    orfs_all = annotation.collect_orfs(args.query_fp)
+    orfs_all = annotation.collect_orfs(args.query_fp, args.model_fp)
 
     # Align ORFs to databases using BLAST
     with tempfile.TemporaryDirectory() as dh:

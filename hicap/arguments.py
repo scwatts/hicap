@@ -26,12 +26,15 @@ def get_args():
 
     # Inputs and outputs
     database_dir = pathlib.Path(__file__).parent / 'database'
+    model_path = pathlib.Path(__file__).parent / 'model/prodigal_hi.bin'
     parser_files.add_argument('-q', '--query_fp', required=True, type=pathlib.Path,
                               help='Input FASTA query')
     parser_files.add_argument('-o', '--output_dir', required=True, type=pathlib.Path,
                               help='Output directory')
     parser_files.add_argument('-d', '--database_dir', required=False, type=pathlib.Path, default=database_dir,
                               help='Directory containing locus database. [default: %s]' % database_dir)
+    parser_files.add_argument('-m', '--model_fp', required=False, type=pathlib.Path, default=model_path,
+                              help='Path to prodigal model. [default: %s]' % model_path)
     parser_files.add_argument('-s', '--full_sequence', required=False, action='store_true',
                               help='Write the full input sequence out to the genbank file rather '
                               'than just the region surrounding and including the locus')
@@ -81,7 +84,7 @@ def check_args(args):
         logging.error(msg, args.database_dir)
         sys.exit(1)
 
-    # TODO: check that all database files are present
+    # TODO: check that all database files and prodigal model exist
 
     # Input format
     try:

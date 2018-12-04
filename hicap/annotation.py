@@ -19,9 +19,9 @@ class Orf:
         self.sequence = str()
 
 
-def collect_orfs(fasta_fp):
+def collect_orfs(fasta_fp, model_fp):
     logging.info('Collecting ORFs from FASTA file')
-    prodigal_stdout = annotate(fasta_fp)
+    prodigal_stdout = annotate(fasta_fp, model_fp)
     orfs = process_prodigal_stdout(prodigal_stdout)
 
     logging.info('Extracting nucleotide sequence of ORFs')
@@ -33,10 +33,10 @@ def collect_orfs(fasta_fp):
     return orfs
 
 
-def annotate(query_fp):
+def annotate(query_fp, model_fp):
     logging.debug('Annotating %s using Prodigal', query_fp)
-    command = 'prodigal -c -f sco -i %s -m -p meta'
-    result = utility.execute_command(command % query_fp)
+    command = 'prodigal -f sco -i %s -m -t %s'
+    result = utility.execute_command(command % (query_fp, model_fp))
     return result.stdout
 
 
