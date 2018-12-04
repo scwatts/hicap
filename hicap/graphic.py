@@ -1,16 +1,12 @@
 import copy
+import logging
 import re
 import tempfile
 import xml.etree.ElementTree as ET
 
 
-# TODO remove unused
-import Bio.Alphabet
-import Bio.Seq
-import Bio.SeqRecord
-import Bio.SeqFeature
-import Bio.SeqIO
 import Bio.Graphics.GenomeDiagram
+import Bio.SeqFeature
 import reportlab.lib.colors
 
 
@@ -56,8 +52,10 @@ def prepare_genbank(records):
             feature.location._end = Bio.SeqFeature.ExactPosition(feature.location.end + upper_block_size)
         record.features = sorted(record.features, key=lambda f: f.location.start)
 
-        # Rotate sequence
-        record.seq = record.seq[upper_block_offset:] + record.seq[:upper_block_offset]
+        # Rotate sequence and trim
+        sequence = record.seq[upper_block_offset:] + record.seq[:upper_block_offset]
+        record.seq = sequence[:record.features[-1].location.end]
+        logging.warn('The contig "%s" has been rotated for the graphical output', record.name)
     return records
 
 
