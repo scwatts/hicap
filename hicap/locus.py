@@ -146,19 +146,37 @@ def collect_nearby_orfs(region_groups, orfs_all):
 
     nearby_orfs = set()
     for contig, contig_hits in sort_hits_by_contig(hits_selected).items():
-        hits_start, hits_end = get_elements_bounds(contig_hits)
-        range_start = hits_start - NEARBY_FLANK_DIST
-        range_end = hits_end + NEARBY_FLANK_DIST
-        # TODO: we should check if these nearby ORFs are _somehow_ cap locus specific genes
-        orfs = collect_elements_in_bounds(range_start, range_end, contig, orfs_remaining)
+        orfs = run_nearby_orf_collection(contig, contig_hits, orfs_remaining)
+
         # Apply some sanity filtering here - not exposed to user
         orfs_filtered = set()
         for orf in orfs:
-            if (orf.end - orf.start) <= 100:
+            if (orf.end - orf.start) <= 200:
                 continue
             orfs_filtered.add(orf)
         nearby_orfs |= orfs_filtered
     return nearby_orfs
+
+
+def run_nearby_orf_collection(contig, contig_hits, orfs_remaining):
+    hits_start, hits_end = get_elements_bounds(contig_hits)
+    range_start = hits_start - NEARBY_FLANK_DIST
+    range_end = hits_end + NEARBY_FLANK_DIST
+
+    # The cap locus can be split and found at either end of a large contig, check for this
+    if range_end - range_start > 30000:
+        last_position = 0
+        contig_hits_sorted = sorted(contig_hits, key=lambda h: h.orf.start)
+        for i, hit in enumerate(contig_hits_sorted):
+            if hit.orf.start - last_position > 5000:
+                break
+            last_position = hit.orf.end
+        # Recursing on split elements
+        orfs_lower = run_nearby_orf_collection(contig, contig_hits_sorted[:i], orfs_remaining)
+        orfs_upper = run_nearby_orf_collection(contig, contig_hits_sorted[i:], orfs_remaining)
+        return orfs_lower | orfs_upper
+    else:
+        return collect_elements_in_bounds(range_start, range_end, contig, orfs_remaining)
 
 
 def get_elements_bounds(elements):
