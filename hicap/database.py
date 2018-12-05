@@ -27,7 +27,7 @@ SEROTYPES = {
 
 
 def search(orfs_all, database_fps, threads):
-    # Generate to split ORFs into even groups for each thread
+    # Generator to split ORFs into even groups for each thread
     n = math.ceil(len(orfs_all) / threads)
     orfs_split_gen = (orfs_all[i:i+n] for i in range(0, len(orfs_all), n))
 

@@ -91,7 +91,7 @@ def create_graphic(records, prefix):
             elif notes['no_orf']:
                 # Blast hit without ORF
                 gene_colour = COLOURS_BLAST[notes['region']]
-                gene_border = reportlab.lib.colors.HexColor(0x00000000, hasAlpha=True) # remove gene order
+                gene_border = reportlab.lib.colors.HexColor(0x00000000, hasAlpha=True) # remove gene border
             else:
                 # Complete hit with ORF
                 gene_colour = COLOURS_COMPLETE[notes['region']]

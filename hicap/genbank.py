@@ -59,7 +59,7 @@ def add_hit_features(contig_hits, position_deltas, contig, gb_records):
         qualifiers = {'gene': hit.sseqid, 'note': 'region_%s' % region}
         if hit.broken:
             qualifiers['note'] += ';fragment'
-        # Get object with info relating to query sequence
+        # Get object with info relating to input query sequence
         if getattr(hit, 'orf'):
             element = hit.orf
         elif getattr(hit, 'seq_section'):

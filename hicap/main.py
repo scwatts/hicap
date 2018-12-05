@@ -53,9 +53,9 @@ def main():
         group = locus.locate_fragmented_region_two(region_groups, hits_remaining, filter_params)
         region_groups['two'] = group
 
-    # For any gene, attempt to find fragments proximal to previously dsicovered ORFs
-    contigs_fasta = utility.read_fasta(args.query_fp)
-    locus.find_proximal_fragments(region_groups, hits_remaining, contigs_fasta)
+    # For any gene, attempt to find fragments proximal to previously discovered ORFs
+    contig_fastas = utility.read_fasta(args.query_fp)
+    locus.find_proximal_fragments(region_groups, hits_remaining, contig_fastas)
 
     # For any genes which are missing, attempt to find via basic BLAST
     locus.blast_missing_genes(region_groups, contigs_fasta, args.database_fps)

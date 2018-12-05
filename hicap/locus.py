@@ -257,7 +257,7 @@ def collect_elements_in_bounds(start, end, contig, elements):
 
 
 def blast_missing_genes(region_groups, contig_fastas, database_fps):
-    # Find missing genes - currently only operating as missiing or not
+    # Find missing genes - currently only operating as missing or not
     # TODO: uses counts - then select best n hits
     missing_genes = set()
     for region, region_data in region_groups.items():
@@ -271,7 +271,7 @@ def blast_missing_genes(region_groups, contig_fastas, database_fps):
     if not missing_genes:
         return
 
-    # Get nucleotide including and around locus
+    # Get nucleotide sequence including and around locus
     hits = {hit for region_data in region_groups.values() for hit in region_data.orf_hits}
     locus_ranges = get_proximal_ranges(hits, contig_fastas)
     locus_sequences = list()
