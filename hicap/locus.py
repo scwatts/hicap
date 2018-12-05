@@ -182,6 +182,10 @@ def collect_nearby_orfs(region_groups, orfs_all):
     orfs_selected = sort_hits_by_orf(hits_selected)
     orfs_remaining = set(orfs_all) - set(orfs_selected)
 
+    # If there are no ORFs without hits, make an early exit
+    if not orfs_remaining:
+        return set()
+
     nearby_orfs = set()
     for contig, contig_hits in sort_hits_by_contig(hits_selected).items():
         orfs = run_nearby_orf_collection(contig, contig_hits, orfs_remaining)
