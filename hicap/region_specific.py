@@ -75,7 +75,7 @@ def determine_serotype(orf, orf_hits, distance, orfs_hits):
     if len(gene_hits) == 1:
         return database.get_serotype_group(*gene_hits)
 
-    # Search for any unambiguous hits in the nighbourhood
+    # Search for any unambiguous hits in the neighbourhood
     start = orf.start - distance
     end = orf.end + distance
     neighbour_orfs_hits = collect_neighbourhood_hits(start, end, orf.contig, orfs_hits)
