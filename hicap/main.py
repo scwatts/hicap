@@ -49,13 +49,16 @@ def main():
         region_groups[region] = group
 
     # If no completed hits were found for region two, attempt to find fragmented ORFs
-    if not region_groups['two'].hits:
+    if not region_groups['two'].orf_hits:
         group = locus.locate_fragmented_region_two(region_groups, hits_remaining, filter_params)
         region_groups['two'] = group
 
     # For any gene, attempt to find fragments proximal to previously dsicovered ORFs
     contigs_fasta = utility.read_fasta(args.query_fp)
     locus.find_proximal_fragments(region_groups, hits_remaining, contigs_fasta)
+
+    # For any genes which are missing, attempt to find via basic BLAST
+    locus.blast_missing_genes(region_groups, contigs_fasta, args.database_fps)
 
     # Collect ORFs that are not apart of the Hi cap loci in the surrounding areas
     # TODO: contig min/max(orf.start, orf.end, boundary)

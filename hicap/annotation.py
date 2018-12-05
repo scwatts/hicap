@@ -10,6 +10,7 @@ PRODIGAL_CONTIG_RE = re.compile(r'^# Sequence.+?seqhdr="(.+?)"(?:;|$)')
 
 
 class Orf:
+    '''Used to represent an ORF and is associated with a BlastResult instance'''
 
     def __init__(self, contig, start, end, strand):
         self.contig = contig
@@ -17,6 +18,16 @@ class Orf:
         self.end = int(end)
         self.strand = +1 if strand == '+' else -1
         self.sequence = str()
+
+
+class SeqSection:
+    '''Used to represent an section of query sequence for hits without ORFs'''
+
+    def __init__(self, contig, start, end, strand):
+        self.contig = contig
+        self.start = int(start)
+        self.end = int(end)
+        self.strand = strand
 
 
 def collect_orfs(fasta_fp, model_fp):

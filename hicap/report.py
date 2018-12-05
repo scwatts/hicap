@@ -16,6 +16,7 @@ class SummaryData:
     def __init__(self):
         self.completeness = dict.fromkeys(database.SCHEME, None)
         self.truncated_genes = dict.fromkeys(database.SCHEME, None)
+        self.hits_without_orfs = dict.fromkeys(database.SCHEME, None)
         self.duplicated = None
         self.multiple_contigs = None
         self.serotypes = None
@@ -39,9 +40,11 @@ def write_outputs(region_groups, nearby_orfs, args):
     # we want full contigs names in the graphic. So we'll truncate the names after
     # generating the graphic
     fasta = utility.read_fasta(args.query_fp)
-    hits_all = [hit for group in region_groups.values() for hit in group.hits]
+    hits_all = locus.get_all_hits(region_groups)
+    orf_hits_all = {hit for hit in hits_all if getattr(hit, 'orf')}
+    blast_hits_all = {hit for hit in hits_all if getattr(hit, 'seq_section')}
     contig_sequences = genbank.collect_contig_sequences(fasta, hits_all, nearby_orfs)
-    genbank_data = genbank.create_genbank_record(hits_all, nearby_orfs, contig_sequences)
+    genbank_data = genbank.create_genbank_record(orf_hits_all, blast_hits_all, nearby_orfs, contig_sequences)
 
     # Graphic
     # TODO: legend?
@@ -58,7 +61,7 @@ def write_outputs(region_groups, nearby_orfs, args):
     # Use full input sequence if requested
     if args.full_sequence:
         contig_sequences = {contig: (0, fasta[contig]) for contig in fasta}
-        genbank_data = genbank.create_genbank_record(hits_all, nearby_orfs, contig_sequences)
+        genbank_data = genbank.create_genbank_record(orf_hits_all, blast_hits_all, nearby_orfs, contig_sequences)
     # Truncate names for legal genbank format
     for record in genbank_data:
         record.name = record.name.split()[0][:15]
@@ -76,7 +79,7 @@ def create_summary(region_groups):
     for region in ('one', 'two', 'three'):
         group = region_groups[region]
         # Completeness and truncated genes
-        genes_found = {hit.sseqid for hit in group.hits}
+        genes_found = {hit.sseqid for hit in group.orf_hits}
         if region in ('one', 'three'):
             genes_expected = database.SCHEME[region]
         else:
@@ -85,17 +88,31 @@ def create_summary(region_groups):
                 genes_expected.update(database.SEROTYPES[serotype])
         genes_missing = genes_expected - genes_found
         summary_data.completeness[region] = (genes_missing, len(genes_found), len(genes_expected))
-        summary_data.truncated_genes[region] = {hit for hit in group.hits if hit.broken}
+        summary_data.truncated_genes[region] = {hit for hit in group.orf_hits if hit.broken}
+        summary_data.hits_without_orfs[region] = {hit for hit in group.blast_hits}
         # Duplication. Verbose for clarity
-        if group.hits and is_duplicated(group.hits):
+        if group.orf_hits and is_duplicated(group.orf_hits):
             summary_data.duplicated = True
 
     # Serotype
     summary_data.serotypes = region_groups['two'].serotypes
 
-    # On multiple contigs
-    hits_all_gen = (hit for group in region_groups.values() for hit in group.hits)
-    contig_hits = locus.sort_hits_by_contig(hits_all_gen)
+    # Sort all hits by contig - use manaul sort here rather than generic function
+    contig_hits = dict()
+    for region_data in region_groups.values():
+        for hit in region_data.orf_hits | region_data.blast_hits:
+            # Get contig - check which attribute is not None
+            if getattr(hit, 'orf'):
+                contig = hit.orf.contig
+            elif getattr(hit, 'seq_section'):
+                contig = hit.seq_section.contig
+            # Add
+            try:
+                contig_hits[contig].add(hit)
+            except:
+                contig_hits[contig] = {hit}
+
+    # Locus on multiple contigs
     if len(contig_hits) > 1:
         summary_data.multiple_contigs = True
 
@@ -123,17 +140,20 @@ def write_summary(data, prefix, fh):
         attributes.append('full_gene_complement')
     if any(data.truncated_genes.values()):
         attributes.append('truncated_genes')
+    if any(data.hits_without_orfs.values()):
+        attributes.append('matches_without_orfs')
     if data.multiple_contigs:
         attributes.append('fragmented_locus')
     if data.duplicated:
         attributes.append('duplicated')
+    # missing orfs
     print(','.join(attributes), end='\t', file=fh)
 
     # Genes found and contigs with location
     contig_genes = dict()
     contig_bounds = dict()
     for contig, contig_hits in data.hits_by_contig.items():
-        hits_sorted = sorted(contig_hits, key=lambda k: k.orf.start)
+        hits_sorted = sorted(contig_hits, key=lambda h: locus.get_hit_start(h))
         contig_genes[contig] = ','.join(get_gene_names(hits_sorted))
         contig_bounds[contig] = '%s:%s-%s' % (contig, hits_sorted[0].orf.start, hits_sorted[-1].orf.end)
     print(*contig_genes.values(), sep=';', end='\t', file=fh)
@@ -153,9 +173,14 @@ def get_gene_names(hits):
     gene_names = list()
     for hit in hits:
         if hit.broken:
+            # Truncated gene
             gene_names.append(hit.sseqid + '*')
+        elif getattr(hit, 'seq_section'):
+            # Blast hit only - no ORF assocaited
+            gene_names.append(hit.sseqid + '^')
         else:
             gene_names.append(hit.sseqid)
+
     return gene_names
 
 

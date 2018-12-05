@@ -22,13 +22,14 @@ BlastFormat = {'qseqid': str,
                'gaps': int}
 
 
-class BlastResults:
+class BlastResult:
 
     def __init__(self, *values):
         for (attr, attr_type), value in zip(BlastFormat.items(), values):
             setattr(self, attr, attr_type(value))
+        self.orf = None             # annotation.Orf - ORF associated with hit
+        self.seq_section = None     # annotation.SeqSection - blast hits without ab ORF
         self.region = None
-        self.orf = None
         self.broken = False
 
 
@@ -50,4 +51,4 @@ def align(query_fp, blast_db_fp):
 def parse_blast_stdout(blast_results):
     logging.debug('Parsing %s BLAST results', len(blast_results))
     line_token_gen = (line.split() for line in blast_results.split('\n'))
-    return [BlastResults(*lts) for lts in line_token_gen if lts]
+    return [BlastResult(*lts) for lts in line_token_gen if lts]

@@ -1,3 +1,8 @@
+import pathlib
+import tempfile
+
+
+from . import annotation
 from . import database
 from . import region_common
 from . import region_specific
@@ -9,13 +14,14 @@ NEARBY_FLANK_DIST = 1000
 
 class Group:
 
-    def __init__(self, hits, *, serotypes=None, contigs=None):
-        self.hits = hits
+    def __init__(self, orf_hits, *, serotypes=None, contigs=None):
+        self.orf_hits = orf_hits
         self.serotypes = serotypes
         self.contigs = contigs
+        self.blast_hits = set()
 
         if self.contigs and len(self.contigs) <= 1:
-            hits_sorted = sorted(self.hits, key=lambda h: h.orf.start)
+            hits_sorted = sorted(self.orf_hits, key=lambda h: h.orf.start)
             self.start = hits_sorted[0].orf.start
             self.end = hits_sorted[-1].orf.end
         else:
@@ -80,7 +86,7 @@ def locate_fragmented_region_two(groups, hits_remaining, filter_params):
     # Hits upstream and downstream of region one and three
     hits_candidate = set()
     for region in ('one', 'three'):
-        for contig, contig_hits in sort_hits_by_contig(groups[region].hits).items():
+        for contig, contig_hits in sort_hits_by_contig(groups[region].orf_hits).items():
             hits_start, hits_end = get_elements_bounds(contig_hits)
             range_start = hits_start - RTWO_FLANK_DIST
             range_end = hits_end + RTWO_FLANK_DIST
@@ -89,14 +95,14 @@ def locate_fragmented_region_two(groups, hits_remaining, filter_params):
     # Select best hits and set them to broken
     hits_remaining -= hits_candidate
     group = region_specific.discover_clusters(hits_candidate, hits_remaining, filter_params)
-    for hit in group.hits:
+    for hit in group.orf_hits:
         hit.broken = True
     return group
 
 
 def find_proximal_fragments(region_groups, hits_remaining, contig_fasta):
     # Get proximal distances
-    hits = {hit for region_data in region_groups.values() for hit in region_data.hits}
+    hits = {hit for region_data in region_groups.values() for hit in region_data.orf_hits}
     contig_ranges = get_proximal_ranges(hits, contig_fasta)
 
     # Find hits within the locus ranges
@@ -130,7 +136,7 @@ def find_proximal_fragments(region_groups, hits_remaining, contig_fasta):
     # Update region_group and hit.broken status
     for region, hits_fragmented in hits_selected.items():
         contigs_new = {hit.orf.contig for hit in hits_fragmented}
-        region_groups[region].hits.update(hits_fragmented)
+        region_groups[region].orf_hits.update(hits_fragmented)
         region_groups[region].contigs.update(contigs_new)
         hits_remaining -= hits_fragmented
         for hit in hits_fragmented:
@@ -178,7 +184,7 @@ def get_proximal_ranges(hits, contig_fasta):
 
 
 def collect_nearby_orfs(region_groups, orfs_all):
-    hits_selected = {hit for group in region_groups.values() for hit in group.hits}
+    hits_selected = {hit for group in region_groups.values() for hit in group.orf_hits}
     orfs_selected = sort_hits_by_orf(hits_selected)
     orfs_remaining = set(orfs_all) - set(orfs_selected)
 
@@ -250,6 +256,90 @@ def collect_elements_in_bounds(start, end, contig, elements):
     return elements_selected
 
 
+def blast_missing_genes(region_groups, contig_fastas, database_fps):
+    # Find missing genes - currently only operating as missiing or not
+    # TODO: uses counts - then select best n hits
+    missing_genes = set()
+    for region, region_data in region_groups.items():
+        genes = {hit.sseqid for hit in region_data.orf_hits}
+        if region in {'one', 'three'}:
+            missing_genes |= genes ^ database.SCHEME[region]
+        elif region == 'two':
+            for serotype in region_data.serotypes:
+                missing_genes |= genes ^ database.SEROTYPES[serotype]
+
+    if not missing_genes:
+        return
+
+    # Get nucleotide including and around locus
+    hits = {hit for region_data in region_groups.values() for hit in region_data.orf_hits}
+    locus_ranges = get_proximal_ranges(hits, contig_fastas)
+    locus_sequences = list()
+    query_offsets = list()
+    query_contigs = list()
+    for contig, locus_ranges in locus_ranges.items():
+        for locus_range in locus_ranges:
+            start = locus_range.start if locus_range.start > 0 else 0
+            sequence = contig_fastas[contig][start:locus_range.stop]
+            locus_sequences.append(sequence)
+            query_offsets.append(start)
+            query_contigs.append(contig)
+
+    # Write out query sequences and run alignment
+    with tempfile.TemporaryDirectory() as dh:
+        query_fp = pathlib.Path(dh, 'locus_seq.fasta')
+        with query_fp.open('w') as fh:
+            for i, sequence in enumerate(locus_sequences):
+                print('>%s' % i, sequence, sep='\n', file=fh)
+        hits_missing = database.run_search(query_fp, database_fps)
+
+    # Filter for missing genes and apply some sanity filtering here - not exposed to user
+    hits_filtered = {hit for hit in hits_missing if hit.sseqid in missing_genes}
+    hits_filtered = {hit for hit in hits_filtered if hit.bitscore >= 200}
+
+    # Create and add annotation.SeqSection to each blast hit
+    for hit in hits_filtered:
+        query_index = int(hit.qseqid)
+        contig = query_contigs[query_index]
+        start = hit.qstart + query_offsets[query_index]
+        end = hit.qend + query_offsets[query_index]
+        # Determine strand
+        strand = -1 if hit.sstart > hit.send else 1
+        # Ensure start is always lower than end
+        if start > end:
+            start, end = end, start
+        hit.seq_section = annotation.SeqSection(contig, start, end, strand)
+
+    # Ensure there are no overlaps - select if there are
+    # TODO: allow small amount of overlap with ORFs
+    hits_selected = set()
+    orfs = {hit.orf for hit in hits}
+    orf_ranges = [range(orf.start, orf.end) for orf in orfs]
+    for hit in hits_filtered:
+        if any(hit.qstart in r or hit.qend in r for r in orf_ranges):
+            continue
+        hits_selected.add(hit)
+
+    # Add hits to region group
+    for hit in hits_selected:
+        region = database.get_region(hit.sseqid)
+        region_groups[region].blast_hits.add(hit)
+
+
+def accumulate_missing_counts(counter, new_counts):
+    for gene, count in new_counts.items():
+        if gene not in counter:
+            counter[gene] = 0
+        counter[gene] += count
+
+
+def get_all_hits(region_groups):
+    hits_all = set()
+    for region, region_data in  region_groups.items():
+        hits_all |= region_data.orf_hits | region_data.blast_hits
+    return hits_all
+
+
 def sort_hits_by_orf(hits):
     orfs_hits = dict()
     for hit in hits:
@@ -273,10 +363,16 @@ def sort_hits_by_gene(hits):
 def sort_hits_by_contig(hits):
     contigs_hits = dict()
     for hit in hits:
+        # Get contig
+        if getattr(hit, 'orf'):
+            contig = hit.orf.contig
+        elif getattr(hit, 'seq_section'):
+            contig = hit.seq_section.contig
+        # Add
         try:
-            contigs_hits[hit.orf.contig].add(hit)
+            contigs_hits[contig].add(hit)
         except KeyError:
-            contigs_hits[hit.orf.contig] = {hit}
+            contigs_hits[contig] = {hit}
     return contigs_hits
 
 
@@ -297,3 +393,11 @@ def sort_orfs_by_contig(orfs):
         except KeyError:
             contigs_orfs[orf.contig] = {orf}
     return contigs_orfs
+
+
+def get_hit_start(hit):
+    '''Get the starting position in the query sequence of a hit'''
+    if getattr(hit, 'orf'):
+        return hit.orf.start
+    elif getattr(hit, 'seq_section'):
+        return hit.seq_section.start

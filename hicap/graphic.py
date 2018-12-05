@@ -10,13 +10,22 @@ import Bio.SeqFeature
 import reportlab.lib.colors
 
 
-COLOURS_COMPLETE = {'one': '#7bcebe',
-                    'two': '#f9958b',
-                    'three': '#ffe589',
-                    'none': '#d3d3d3'}
-COLOURS_BROKEN = {'one': '#8fa8a3',
-                  'two': '#d3a7a2',
-                  'three': '#d8ceab'}
+COLOURS_COMPLETE = {
+        'one':      '#7bcebe',
+        'two':      '#f9958b',
+        'three':    '#ffe589',
+        'none':     '#d3d3d3'
+                    }
+COLOURS_BLAST = {
+        'one':      '#b0e6db',
+        'two':      '#ffcbbf',
+        'three':    '#ffeea7'
+                    }
+COLOURS_BROKEN = {
+        'one':      '#8fa8a3',
+        'two':      '#d3a7a2',
+        'three':    '#d8ceab'
+        }
 
 LABEL_SIZE = 12
 TRACK_LABEL_SIZE = 18
@@ -67,22 +76,29 @@ def create_graphic(records, prefix):
         for feature in record.features:
             if feature.type != 'CDS':
                 continue
+            # TODO: can we clean this up a little?
             # Accept quals as list or single item for interop
             notes = process_notes(get_qualifier(feature.qualifiers['note']))
             if notes['region'] != 'none':
                 gene_name = get_qualifier(feature.qualifiers['gene'])
-                gene_border = reportlab.lib.colors.black
+                gene_border = reportlab.lib.colors.HexColor(0x000000) # black
             else:
                 gene_name = ''
-                gene_border = reportlab.lib.colors.grey
+                gene_border = reportlab.lib.colors.HexColor(0x808080) # gray
             if notes['fragment']:
+                # Truncated hit with ORF
                 gene_colour = COLOURS_BROKEN[notes['region']]
+            elif notes['no_orf']:
+                # Blast hit without ORF
+                gene_colour = COLOURS_BLAST[notes['region']]
+                gene_border = reportlab.lib.colors.HexColor(0x00000000, hasAlpha=True) # remove gene order
             else:
+                # Complete hit with ORF
                 gene_colour = COLOURS_COMPLETE[notes['region']]
+            label_position = 'start' if feature.strand == 1 else 'end'
 
-            strand = 'start' if feature.strand == 1 else 'end'
             track_features.add_feature(feature, sigil='BIGARROW', label=True, name=gene_name,
-                                       border=gene_border, label_position=strand,
+                                       border=gene_border, label_position=label_position,
                                        label_angle=0, label_size=LABEL_SIZE, color=gene_colour)
 
         # TODO: Scale width with size
@@ -94,12 +110,14 @@ def create_graphic(records, prefix):
 
 
 def process_notes(note_str):
-    notes = {'region': 'none', 'fragment': False}
+    notes = {'region': 'none', 'fragment': False, 'no_orf': False}
     for note_token in note_str.split(';'):
         if note_token.startswith('region_'):
             notes['region'] = note_token.replace('region_', '')
         elif note_token == 'fragment':
             notes['fragment'] = True
+        elif note_token == 'no_orf':
+            notes['no_orf'] = True
     return notes
 
 

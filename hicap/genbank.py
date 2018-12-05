@@ -14,19 +14,23 @@ from . import locus
 SEQ_PADDING = 1000
 
 
-def create_genbank_record(hits_all, nearby_orfs, contig_sequences):
+def create_genbank_record(orf_hits_all, blast_hits_all, nearby_orfs, contig_sequences):
     # Create base records
     logging.info('Creating genbank records')
     position_deltas, gb_records = create_base_records(contig_sequences)
 
-    # Add hits and misc_feature for locus - SeqRecord instances modified inplace within function
-    for contig, contig_hits in locus.sort_hits_by_contig(hits_all).items():
+    # Add ORF hits for locus - SeqRecord instances modified inplace within function
+    for contig, contig_hits in locus.sort_hits_by_contig(orf_hits_all).items():
+        add_hit_features(contig_hits, position_deltas, contig, gb_records)
+
+    # Add blast hits for locus - SeqRecord instances modified inplace within function
+    for contig, contig_hits in locus.sort_hits_by_contig(blast_hits_all).items():
         add_hit_features(contig_hits, position_deltas, contig, gb_records)
 
     # Add ORFs - SeqRecord instances modified inplace within function
     orf_counter = 0
     for contig, orfs in locus.sort_orfs_by_contig(nearby_orfs).items():
-        orf_counter = add_orf_features(orfs, position_deltas, orf_counter, contig, gb_records)
+        orf_counter = add_misc_orf_features(orfs, position_deltas, orf_counter, contig, gb_records)
 
     # Sort features by location
     for contig in gb_records.keys():
@@ -49,19 +53,25 @@ def create_base_records(contig_sequences):
 
 def add_hit_features(contig_hits, position_deltas, contig, gb_records):
     position_delta = position_deltas[contig]
-    for hit in sorted(contig_hits, key=lambda k: k.orf.start):
+    for hit in sorted(contig_hits, key=lambda h: locus.get_hit_start(h)):
         # Get appropriate representation of gene name
         region = hit.region if hit.region else locus.get_gene_region(hit.sseqid)
         qualifiers = {'gene': hit.sseqid, 'note': 'region_%s' % region}
         if hit.broken:
             qualifiers['note'] += ';fragment'
+        # Get object with info relating to query sequence
+        if getattr(hit, 'orf'):
+            element = hit.orf
+        elif getattr(hit, 'seq_section'):
+            element = hit.seq_section
+            qualifiers['note'] += ';no_orf'
         # Create feature record
-        start, end = hit.orf.start, hit.orf.end
-        feature = create_cds_feature(start, end, position_delta, hit.orf.strand, qualifiers)
+        start, end = element.start, element.end
+        feature = create_cds_feature(start, end, position_delta, element.strand, qualifiers)
         gb_records[contig].features.append(feature)
 
 
-def add_orf_features(orfs, position_deltas, orf_counter, contig, gb_records):
+def add_misc_orf_features(orfs, position_deltas, orf_counter, contig, gb_records):
     position_delta = position_deltas[contig]
     for orf in sorted(orfs, key=lambda o: o.start):
         orf_counter += 1
@@ -92,30 +102,41 @@ def add_locus_feature(gb_records):
 
 
 def collect_contig_sequences(fasta, hits, nearby_orfs):
-    # Sort all ORFs by contig
-    hit_orfs = {hit.orf for hit in hits}
-    contig_orfs = locus.sort_orfs_by_contig(hit_orfs | nearby_orfs)
+    # Sort all Orfs and SeqSections by contig
+    contig_elements = dict()
+    for hit in hits:
+        # Get element
+        if getattr(hit, 'orf'):
+            element = hit.orf
+        elif getattr(hit, 'seq_section'):
+            element = hit.seq_section
+        # Add
+        try:
+            contig_elements[element.contig].add(element)
+        except:
+            contig_elements[element.contig] = {element}
+
     contig_sequences = dict()
-    for contig, orfs in contig_orfs.items():
-        # Get the most left and most right ORF associated with a hit
-        orfs_sorted = sorted(orfs, key=lambda o: o.start)
-        orf_start = None
-        orf_end = None
-        for orf in orfs_sorted:
-            if orf in nearby_orfs:
+    for contig, elements in contig_elements.items():
+        # Get the most left and most right element associated with a hit
+        elements_sorted = sorted(elements, key=lambda e: e.start)
+        element_start = None
+        element_end = None
+        for element in elements_sorted:
+            if element in nearby_orfs:
                 continue
-            orf_end = orf
-            if not orf_start:
-                orf_start = orf
+            element_end = element
+            if not element_start:
+                element_start = element
 
         # Apply sequencing padding - extend if we do not extend beyond nearby orfs
-        start = orf_start.start - SEQ_PADDING
-        if start > orfs_sorted[0].start:
-            start = orfs_sorted[0].start - 16
+        start = element_start.start - SEQ_PADDING
+        if start > elements_sorted[0].start:
+            start = elements_sorted[0].start - 16
         start = max(start, 0)
-        end = orf_end.end + SEQ_PADDING
-        if end < orfs_sorted[-1].end:
-            end = orfs_sorted[-1].end + 16
+        end = element_end.end + SEQ_PADDING
+        if end < elements_sorted[-1].end:
+            end = elements_sorted[-1].end + 16
         end = min(end, len(fasta[contig]))
         contig_sequences[contig] = (start, fasta[contig][start:end])
     return contig_sequences
