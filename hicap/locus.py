@@ -12,7 +12,15 @@ RTWO_FLANK_DIST = 5000
 NEARBY_FLANK_DIST = 1000
 
 
-class Group:
+class LocusData:
+
+    def __init__(self):
+        self.regions = dict()
+        self.is_hits = None
+        self.nearby_orfs = None
+
+
+class Region:
 
     def __init__(self, orf_hits, *, serotypes=None, contigs=None):
         self.orf_hits = orf_hits
@@ -81,7 +89,7 @@ def locate_fragmented_region_two(groups, hits_remaining, filter_params):
     hits_rtwo_all = {hit for hit in hits_remaining if hit.sseqid in genes_rtwo_all}
     hits_rtwo_filtered = database.filter_hits(hits_rtwo_all, **filter_params)
     if not hits_rtwo_filtered:
-        return Group({})
+        return Region({})
 
     # Hits upstream and downstream of region one and three
     hits_candidate = set()
@@ -272,18 +280,7 @@ def blast_missing_genes(region_groups, contig_fastas, database_fps):
         return
 
     # Get nucleotide sequence including and around locus
-    hits = {hit for region_data in region_groups.values() for hit in region_data.orf_hits}
-    locus_ranges = get_proximal_ranges(hits, contig_fastas)
-    locus_sequences = list()
-    query_offsets = list()
-    query_contigs = list()
-    for contig, locus_ranges in locus_ranges.items():
-        for locus_range in locus_ranges:
-            start = locus_range.start if locus_range.start > 0 else 0
-            sequence = contig_fastas[contig][start:locus_range.stop]
-            locus_sequences.append(sequence)
-            query_offsets.append(start)
-            query_contigs.append(contig)
+    locus_sequences, query_contigs, query_offsets = collect_proximal_locus_sequence(region_groups, contig_fastas)
 
     # Write out query sequences and run alignment
     with tempfile.TemporaryDirectory() as dh:
@@ -299,24 +296,16 @@ def blast_missing_genes(region_groups, contig_fastas, database_fps):
 
     # Create and add annotation.SeqSection to each blast hit
     for hit in hits_filtered:
-        query_index = int(hit.qseqid)
-        contig = query_contigs[query_index]
-        start = hit.qstart + query_offsets[query_index]
-        end = hit.qend + query_offsets[query_index]
-        # Determine strand
-        strand = -1 if hit.sstart > hit.send else 1
-        # Ensure start is always lower than end
-        if start > end:
-            start, end = end, start
-        hit.seq_section = annotation.SeqSection(contig, start, end, strand)
+        hit.seq_section = create_seq_section(hit, query_offsets, query_contigs)
 
     # Ensure there are no overlaps - select if there are
     # TODO: allow small amount of overlap with ORFs
     hits_selected = set()
+    hits = get_all_orf_hits(region_groups)
     orfs = {hit.orf for hit in hits}
     orf_ranges = [range(orf.start, orf.end) for orf in orfs]
     for hit in hits_filtered:
-        if any(hit.seq_section.qstart in r or hit.seq_section.qend in r for r in orf_ranges):
+        if any(hit.seq_section.start in r or hit.seq_section.end in r for r in orf_ranges):
             continue
         hits_selected.add(hit)
 
@@ -326,18 +315,81 @@ def blast_missing_genes(region_groups, contig_fastas, database_fps):
         region_groups[region].blast_hits.add(hit)
 
 
-def accumulate_missing_counts(counter, new_counts):
-    for gene, count in new_counts.items():
-        if gene not in counter:
-            counter[gene] = 0
-        counter[gene] += count
+def collect_proximal_locus_sequence(region_groups, contig_fastas):
+    hits = get_all_orf_hits(region_groups)
+    locus_ranges = get_proximal_ranges(hits, contig_fastas)
+    locus_sequences = list()
+    query_offsets = list()
+    query_contigs = list()
+    for contig, locus_ranges in locus_ranges.items():
+        for locus_range in locus_ranges:
+            start = locus_range.start if locus_range.start > 0 else 0
+            sequence = contig_fastas[contig][start:locus_range.stop]
+            locus_sequences.append(sequence)
+            query_offsets.append(start)
+            query_contigs.append(contig)
+    return locus_sequences, query_contigs, query_offsets
 
 
-def get_all_hits(region_groups):
+def create_seq_section(hit, query_offsets, query_contigs):
+    query_index = int(hit.qseqid)
+    contig = query_contigs[query_index]
+    start = hit.qstart + query_offsets[query_index]
+    end = hit.qend + query_offsets[query_index]
+    # Determine strand
+    strand = -1 if hit.sstart > hit.send else 1
+    # Ensure start is always lower than end
+    if start > end:
+        start, end = end, start
+    return annotation.SeqSection(contig, start, end, strand)
+
+
+def discover_is1016(region_groups, contig_fastas, database_fp):
+    # Get nucleotide sequence including and around locus
+    locus_sequences, query_contigs, query_offsets = collect_proximal_locus_sequence(region_groups, contig_fastas)
+
+    # Write out query sequences and run search
+    with tempfile.TemporaryDirectory() as dh:
+        query_fp = pathlib.Path(dh, 'locus_seq.fasta')
+        with query_fp.open('w') as fh:
+            for i, sequence in enumerate(locus_sequences):
+                print('>%s' % i, sequence, sep='\n', file=fh)
+        hits = database.run_search(query_fp, database_fp)
+
+    # Apply some sanity filtering here - not exposed to user
+    hits_filtered = set()
+    for hit in hits:
+        if hit.bitscore < 200:
+            continue
+        if hit.length < 200:
+            continue
+        if hit.evalue > 0.5:
+            continue
+        if hit.pident < 60:
+            continue
+        hits_filtered.add(hit)
+
+    # TODO: set threshold to define a hit has truncated/ broken
+
+    # Create and add annotation.SeqSection to each blast hit
+    for hit in hits_filtered:
+        hit.seq_section = create_seq_section(hit, query_offsets, query_contigs)
+    return hits_filtered
+
+
+def get_all_hits(locus_data):
     hits_all = set()
-    for region, region_data in  region_groups.items():
+    for region, region_data in locus_data.regions.items():
         hits_all |= region_data.orf_hits | region_data.blast_hits
-    return hits_all
+    return hits_all | locus_data.is_hits
+
+
+def get_all_orf_hits(region_groups):
+    return {hit for region_data in region_groups.values() for hit in region_data.orf_hits}
+
+
+def get_all_blast_hits(locus_data):
+    return {hit for region in locus_data.regions.values() for hit in region.blast_hits}
 
 
 def sort_hits_by_orf(hits):

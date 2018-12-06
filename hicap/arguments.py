@@ -70,7 +70,8 @@ def get_args():
 
     # Glob for database files
     args = parser_parent.parse_args()
-    args.database_fps = list(args.database_dir.glob('*fasta'))
+    args.gene_database_fps = [fp for fp in args.database_dir.glob('*fasta') if '1016' not in fp.name]
+    args.is_database_fp = args.database_dir / 'IS1016V6.fasta'
     return args
 
 
@@ -80,7 +81,7 @@ def check_args(args):
         utility.check_filepath_exists(args.log_fp.parent, 'Directory %s for log filepath does not exist')
     utility.check_filepath_exists(args.database_dir, 'Database directory %s does not exist')
     utility.check_filepath_exists(args.query_fp, 'Input query %s does not exist')
-    if not args.database_fps:
+    if not args.gene_database_fps:
         msg = 'Could not find any database files (.fasta extension) in %s.'
         logging.error(msg, args.database_dir)
         sys.exit(1)

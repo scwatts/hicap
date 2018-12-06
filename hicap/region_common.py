@@ -14,10 +14,10 @@ def discover_clusters(hits_complete, hits_remaining, region, filter_params):
             hit.broken = True
         hits_selected |= hits_broken
 
-    # Create and return locus.Group
+    # Create and return locus.Region
     hits_remaining -= hits_selected
     contigs = {hit.orf.contig for hit in hits_selected}
-    return locus.Group(hits_selected, contigs=contigs)
+    return locus.Region(hits_selected, contigs=contigs)
 
 
 def select_best_hits(hits):

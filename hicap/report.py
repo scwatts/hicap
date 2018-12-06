@@ -21,13 +21,14 @@ class SummaryData:
         self.multiple_contigs = None
         self.serotypes = None
         self.hits_by_contig = None
+        self.is_hits = None
 
 
-def write_outputs(region_groups, nearby_orfs, args):
+def write_outputs(locus_data, args):
     # Report
     prefix = args.query_fp.stem
     output_report_fp = pathlib.Path(args.output_dir, '%s.tsv' % prefix)
-    summary_data = create_summary(region_groups)
+    summary_data = create_summary(locus_data)
     with output_report_fp.open('w') as fh:
         write_summary(summary_data, prefix, fh)
 
@@ -40,11 +41,8 @@ def write_outputs(region_groups, nearby_orfs, args):
     # we want full contigs names in the graphic. So we'll truncate the names after
     # generating the graphic
     fasta = utility.read_fasta(args.query_fp)
-    hits_all = locus.get_all_hits(region_groups)
-    orf_hits_all = {hit for hit in hits_all if getattr(hit, 'orf')}
-    blast_hits_all = {hit for hit in hits_all if getattr(hit, 'seq_section')}
-    contig_sequences = genbank.collect_contig_sequences(fasta, hits_all, nearby_orfs)
-    genbank_data = genbank.create_genbank_record(orf_hits_all, blast_hits_all, nearby_orfs, contig_sequences)
+    contig_sequences = genbank.collect_contig_sequences(fasta, locus_data)
+    genbank_data = genbank.create_genbank_record(locus_data, contig_sequences)
 
     # Graphic
     # TODO: legend?
@@ -61,7 +59,7 @@ def write_outputs(region_groups, nearby_orfs, args):
     # Use full input sequence if requested
     if args.full_sequence:
         contig_sequences = {contig: (0, fasta[contig]) for contig in fasta}
-        genbank_data = genbank.create_genbank_record(orf_hits_all, blast_hits_all, nearby_orfs, contig_sequences)
+        genbank_data = genbank.create_genbank_record(locus_data, contig_sequences)
     # Truncate names for legal genbank format
     for record in genbank_data:
         record.name = record.name.split()[0][:15]
@@ -74,10 +72,10 @@ def write_outputs(region_groups, nearby_orfs, args):
         Bio.SeqIO.write(genbank_data, fh, 'genbank')
 
 
-def create_summary(region_groups):
+def create_summary(locus_data):
     summary_data = SummaryData()
     for region in ('one', 'two', 'three'):
-        group = region_groups[region]
+        group = locus_data.regions[region]
         # Completeness and truncated genes
         genes_found = {hit.sseqid for hit in group.orf_hits}
         if region in ('one', 'three'):
@@ -94,12 +92,13 @@ def create_summary(region_groups):
         if group.orf_hits and is_duplicated(group.orf_hits):
             summary_data.duplicated = True
 
-    # Serotype
-    summary_data.serotypes = region_groups['two'].serotypes
+    # Serotype and count of IS1016 hits
+    summary_data.serotypes = locus_data.regions['two'].serotypes
+    summary_data.is_hits = len(locus_data.is_hits)
 
     # Sort all hits by contig - use manaul sort here rather than generic function
     contig_hits = dict()
-    for region_data in region_groups.values():
+    for region_data in locus_data.regions.values():
         for hit in region_data.orf_hits | region_data.blast_hits:
             # Get contig - check which attribute is not None
             if getattr(hit, 'orf'):
@@ -124,7 +123,7 @@ def create_summary(region_groups):
 def write_summary(data, prefix, fh):
     # Header
     header = ('isolate', 'predicted_serotype', 'attributes', 'genes_identified', 'locus_location',
-              'region_I_genes', 'region_II_genes', 'region_III_genes')
+              'region_I_genes', 'region_II_genes', 'region_III_genes', 'IS1016_hits')
     print('#', end='', file=fh)
     print(*header, sep='\t', file=fh)
 
@@ -166,7 +165,10 @@ def write_summary(data, prefix, fh):
         if genes:
             text = '%s (missing: %s)' % (text, ','.join(genes))
         missing_genes[region] = text
-    print(*missing_genes.values(), sep='\t', file=fh)
+    print(*missing_genes.values(), sep='\t', end='\t', file=fh)
+
+    # IS1016 hits
+    print(data.is_hits, file=fh)
 
 
 def get_gene_names(hits):

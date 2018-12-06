@@ -79,12 +79,14 @@ def create_graphic(records, prefix):
             # TODO: can we clean this up a little?
             # Accept quals as list or single item for interop
             notes = process_notes(get_qualifier(feature.qualifiers['note']))
+            sigil = 'BIGARROW'
             if notes['region'] != 'none':
                 gene_name = get_qualifier(feature.qualifiers['gene'])
                 gene_border = reportlab.lib.colors.HexColor(0x000000) # black
             else:
                 gene_name = ''
                 gene_border = reportlab.lib.colors.HexColor(0x808080) # gray
+
             if notes['fragment']:
                 # Truncated hit with ORF
                 gene_colour = COLOURS_BROKEN[notes['region']]
@@ -92,12 +94,18 @@ def create_graphic(records, prefix):
                 # Blast hit without ORF
                 gene_colour = COLOURS_BLAST[notes['region']]
                 gene_border = reportlab.lib.colors.HexColor(0x00000000, hasAlpha=True) # remove gene border
+            elif notes['is']:
+                # IS hit - force strand to have a smaller box which we move during patching
+                gene_colour = reportlab.lib.colors.HexColor(0x7aa7cc) # dark(ish) pastel blue
+                gene_border = reportlab.lib.colors.HexColor(0x000000) # black
+                feature.strand = 1
+                sigil = 'BOX'
             else:
                 # Complete hit with ORF
                 gene_colour = COLOURS_COMPLETE[notes['region']]
             label_position = 'start' if feature.strand == 1 else 'end'
 
-            track_features.add_feature(feature, sigil='BIGARROW', label=True, name=gene_name,
+            track_features.add_feature(feature, sigil=sigil, label=True, name=gene_name,
                                        border=gene_border, label_position=label_position,
                                        label_angle=0, label_size=LABEL_SIZE, color=gene_colour)
 
@@ -110,7 +118,7 @@ def create_graphic(records, prefix):
 
 
 def process_notes(note_str):
-    notes = {'region': 'none', 'fragment': False, 'no_orf': False}
+    notes = {'region': 'none', 'fragment': False, 'no_orf': False, 'is': False}
     for note_token in note_str.split(';'):
         if note_token.startswith('region_'):
             notes['region'] = note_token.replace('region_', '')
@@ -118,6 +126,8 @@ def process_notes(note_str):
             notes['fragment'] = True
         elif note_token == 'no_orf':
             notes['no_orf'] = True
+        elif note_token == 'insertion_sequence':
+            notes['is'] = True
     return notes
 
 

@@ -1,5 +1,4 @@
 import concurrent.futures
-import logging
 import math
 import pathlib
 import tempfile
@@ -53,6 +52,10 @@ def search(orfs_all, database_fps, threads):
 
 def run_search(query_fp, database_fps):
     '''Perform search via alignment of query sequences in provided database files'''
+    # If database_fps is not iterable (i.e. a single db) make it so
+    if not isinstance(database_fps, (list, tuple, set)):
+        database_fps = [database_fps]
+
     hits_all = set()
     for database_fp in database_fps:
         with tempfile.TemporaryDirectory() as dh:

@@ -21,10 +21,10 @@ def discover_clusters(hits_complete, hits_remaining, filter_params):
         hits_candidate = hits_selected | hits_missing
         hits_selected, serotypes = select_best_genes(hits_candidate, NEIGHBOUR_DIST)
 
-    # Create and return locus.Group
+    # Create and return locus.Region
     hits_remaining -= hits_selected
     contigs = {hit.orf.contig for hit in hits_selected}
-    return locus.Group(hits_selected, serotypes=serotypes, contigs=contigs)
+    return locus.Region(hits_selected, serotypes=serotypes, contigs=contigs)
 
 
 def select_best_genes(hits, distance):

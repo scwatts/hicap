@@ -14,22 +14,28 @@ from . import locus
 SEQ_PADDING = 1000
 
 
-def create_genbank_record(orf_hits_all, blast_hits_all, nearby_orfs, contig_sequences):
+def create_genbank_record(locus_data, contig_sequences):
     # Create base records
     logging.info('Creating genbank records')
     position_deltas, gb_records = create_base_records(contig_sequences)
 
-    # Add ORF hits for locus - SeqRecord instances modified inplace within function
-    for contig, contig_hits in locus.sort_hits_by_contig(orf_hits_all).items():
-        add_hit_features(contig_hits, position_deltas, contig, gb_records)
+    # Add ORF hits
+    orf_hits = locus.get_all_orf_hits(locus_data.regions)
+    for contig, contig_hits in locus.sort_hits_by_contig(orf_hits).items():
+        add_region_hit_features(contig_hits, position_deltas, contig, gb_records)
 
-    # Add blast hits for locus - SeqRecord instances modified inplace within function
-    for contig, contig_hits in locus.sort_hits_by_contig(blast_hits_all).items():
-        add_hit_features(contig_hits, position_deltas, contig, gb_records)
+    # Add blast hits
+    blast_hits = locus.get_all_blast_hits(locus_data)
+    for contig, contig_hits in locus.sort_hits_by_contig(blast_hits).items():
+        add_region_hit_features(contig_hits, position_deltas, contig, gb_records)
 
-    # Add ORFs - SeqRecord instances modified inplace within function
+    # Add IS1016 hits
+    for contig, contig_hits in locus.sort_hits_by_contig(locus_data.is_hits).items():
+        add_is_hit_features(contig_hits, position_deltas, contig, gb_records)
+
+    # Add nearby ORFs
     orf_counter = 0
-    for contig, orfs in locus.sort_orfs_by_contig(nearby_orfs).items():
+    for contig, orfs in locus.sort_orfs_by_contig(locus_data.nearby_orfs).items():
         orf_counter = add_misc_orf_features(orfs, position_deltas, orf_counter, contig, gb_records)
 
     # Sort features by location
@@ -51,7 +57,7 @@ def create_base_records(contig_sequences):
     return position_deltas, gb_records
 
 
-def add_hit_features(contig_hits, position_deltas, contig, gb_records):
+def add_region_hit_features(contig_hits, position_deltas, contig, gb_records):
     position_delta = position_deltas[contig]
     for hit in sorted(contig_hits, key=lambda h: locus.get_hit_start(h)):
         # Get appropriate representation of gene name
@@ -68,6 +74,18 @@ def add_hit_features(contig_hits, position_deltas, contig, gb_records):
         # Create feature record
         start, end = element.start, element.end
         feature = create_cds_feature(start, end, position_delta, element.strand, qualifiers)
+        gb_records[contig].features.append(feature)
+
+
+def add_is_hit_features(contig_hits, position_deltas, contig, gb_records):
+    position_delta = position_deltas[contig]
+    for hit in sorted(contig_hits, key=lambda h: locus.get_hit_start(h)):
+        # Get appropriate representation of gene name
+        # TODO: maybe change the use of the gene field here
+        qualifiers = {'gene': 'IS1016', 'note': 'insertion_sequence'}
+        # Create feature record
+        start, end = hit.seq_section.start, hit.seq_section.end
+        feature = create_cds_feature(start, end, position_delta, hit.seq_section.strand, qualifiers)
         gb_records[contig].features.append(feature)
 
 
@@ -101,8 +119,9 @@ def add_locus_feature(gb_records):
         record.features.insert(0, feature)
 
 
-def collect_contig_sequences(fasta, hits, nearby_orfs):
+def collect_contig_sequences(fasta, locus_data):
     # Sort all Orfs and SeqSections by contig
+    hits = locus.get_all_hits(locus_data)
     contig_elements = dict()
     for hit in hits:
         # Get element
@@ -123,7 +142,7 @@ def collect_contig_sequences(fasta, hits, nearby_orfs):
         element_start = None
         element_end = None
         for element in elements_sorted:
-            if element in nearby_orfs:
+            if element in locus_data.nearby_orfs:
                 continue
             element_end = element
             if not element_start:
