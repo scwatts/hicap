@@ -64,7 +64,7 @@ def prepare_genbank(records):
         # Rotate sequence and trim
         sequence = record.seq[upper_block_offset:] + record.seq[:upper_block_offset]
         record.seq = sequence[:record.features[-1].location.end]
-        logging.warn('The contig "%s" has been rotated for the graphical output', record.name)
+        logging.warning('The contig "%s" has been rotated for the graphical output', record.name)
     return records
 
 
