@@ -35,6 +35,8 @@ VPOINTS_RE = re.compile(r'^.+ ([0-9.]+)$')
 PATH_RE = re.compile(r'^M ([0-9.]+).+?L ([0-9.]+).+Z$')
 LABEL_RE = re.compile(r'^ matrix\(([-10.]+).+? ?([0-9.]+), ?([0-9.]+)\)')
 
+TRANSFORM_TEMPLATE = ' matrix(1.000000, 0.000000, -0.000000, 1.000000, %s, %s)'
+
 
 def prepare_genbank(records):
     replace_locus_features = False
@@ -133,7 +135,6 @@ def process_notes(note_str):
 
 def patch_graphic(graphic_data):
     # TODO: dodge labels for very short contigs
-    # TODO: alternatively consider different representation - single block with annotated stop codons
     svg_data = get_svg_data(graphic_data)
     svg_tree = ET.fromstring(svg_data)
     visual_parent = svg_tree.find('.//{http://www.w3.org/2000/svg}g[@transform=""]')
@@ -148,6 +149,19 @@ def patch_graphic(graphic_data):
         track_hbounds.add(bounds)
 
     # Send the mid-lines backwards
+    patch_track_midlines(visual_parent, track_hbounds, svg_tree)
+
+    # Fix reversed, mirrored labels and pad other labels
+    # Genes on the non-coding strand have their labels upside down which is difficult to read
+    patch_element_labels(svg_tree)
+
+    # Remove original track labels and add new ones
+    patch_track_name_labels(visual_parent, track_hbounds, track_backgrounds, svg_tree, graphic_data)
+    return ET.tostring(svg_tree, encoding='unicode')
+
+
+def patch_track_midlines(visual_parent, track_hbounds, svg_tree):
+    '''Move the track mid lines to the back (but in front of the gray background'''
     # Place them behind the gene symbols but in front track background shading
     paths = svg_tree.findall('.//{http://www.w3.org/2000/svg}g[@transform=""]/{http://www.w3.org/2000/svg}path')
     line_elements = list()
@@ -166,22 +180,24 @@ def patch_graphic(graphic_data):
     for line_element in line_elements:
         visual_parent.insert(len(track_hbounds), line_element)
 
-    # Fix reversed, mirrored labels and pad other labels
-    # Genes on the non-coding strand have their labels upside down which is difficult to read
+
+def patch_element_labels(svg_tree):
+    '''Mirror and move non-coding strand labels'''
     # Set the padding to be equal
-    transform_template = ' matrix(1.000000, 0.000000, -0.000000, 1.000000, %s, %s)'
     texts = svg_tree.findall('.//{http://www.w3.org/2000/svg}g[@transform=""]/{http://www.w3.org/2000/svg}g')
     for text in texts:
         a, x, y = LABEL_RE.match(text.get('transform')).groups()
         if float(a) == -1:
             y_adjusted = float(y) - LABEL_SIZE
-            transform = transform_template % (x, y_adjusted)
+            transform = TRANSFORM_TEMPLATE % (x, y_adjusted)
             text.set('transform', transform)
         else:
             y_adjusted = float(y) + 3
-            transform = transform_template % (x, y_adjusted)
+            transform = TRANSFORM_TEMPLATE % (x, y_adjusted)
             text.set('transform', transform)
 
+
+def patch_track_name_labels(visual_parent, track_hbounds, track_backgrounds, svg_tree, graphic_data):
     # Remove original track name label - on short tracks, these don't even appear
     name_style = 'font-family: Helvetica; font-size: 8px; fill: rgb(60%,60%,60%);'
     names = svg_tree.findall('.//*[@style="%s"]..' % name_style)
@@ -205,13 +221,11 @@ def patch_graphic(graphic_data):
     for contig_name, vbound, hbounds in zip(contig_names, track_vbounds, track_hbounds):
         x = hbounds[0]
         y = float(vbound) + TRACK_LABEL_SIZE
-        name_group = ET.Element('{http://www.w3.org/2000/svg}g', attrib={'transform': transform_template % (x, y)})
+        name_group = ET.Element('{http://www.w3.org/2000/svg}g', attrib={'transform': TRANSFORM_TEMPLATE % (x, y)})
         name_text = copy.deepcopy(text_element)
         name_text.text = contig_name
         name_group.append(name_text)
         visual_parent.insert(insert_index, name_group)
-
-    return ET.tostring(svg_tree, encoding='unicode')
 
 
 def get_svg_data(graphic_data):
