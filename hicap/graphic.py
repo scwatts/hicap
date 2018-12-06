@@ -52,35 +52,43 @@ TRANSFORM_TEMPLATE = ' matrix(1.000000, 0.000000, -0.000000, 1.000000, %s, %s)'
 
 
 def prepare_genbank(records):
-    replace_locus_features = False
+    # Check if we need to rotate any records
     for record in records:
         last_position = 0
         for i, feature in enumerate(record.features):
             if feature.location.start - last_position > 5000:
+                # Must rotate
                 break
             last_position = feature.location.end
         else:
             # If we don't break, then go to next record
             continue
-        features_lower = record.features[:i]
-        features_upper = record.features[i:]
-        upper_block_size = len(record.seq) - features_upper[0].location.start
+        # Apply rotation
+        rotate_locus(record, i)
 
-        # Rotate features
-        upper_block_offset = features_upper[0].location.start
-        for feature in features_upper:
-            feature.location._start = Bio.SeqFeature.ExactPosition(feature.location.start - upper_block_offset)
-            feature.location._end = Bio.SeqFeature.ExactPosition(feature.location.end - upper_block_offset)
-        for feature in features_lower:
-            feature.location._start = Bio.SeqFeature.ExactPosition(feature.location.start + upper_block_size)
-            feature.location._end = Bio.SeqFeature.ExactPosition(feature.location.end + upper_block_size)
-        record.features = sorted(record.features, key=lambda f: f.location.start)
+    # Order records from longest to shortest
+    return sorted(records, key=lambda r: len(r.seq), reverse=True)
 
-        # Rotate sequence and trim
-        sequence = record.seq[upper_block_offset:] + record.seq[:upper_block_offset]
-        record.seq = sequence[:record.features[-1].location.end]
-        logging.warning('The contig "%s" has been rotated for the graphical output', record.name)
-    return records
+
+def rotate_locus(record, index):
+    features_lower = record.features[:index]
+    features_upper = record.features[index:]
+    upper_block_size = len(record.seq) - features_upper[0].location.start
+
+    # Rotate features
+    upper_block_offset = features_upper[0].location.start
+    for feature in features_upper:
+        feature.location._start = Bio.SeqFeature.ExactPosition(feature.location.start - upper_block_offset)
+        feature.location._end = Bio.SeqFeature.ExactPosition(feature.location.end - upper_block_offset)
+    for feature in features_lower:
+        feature.location._start = Bio.SeqFeature.ExactPosition(feature.location.start + upper_block_size)
+        feature.location._end = Bio.SeqFeature.ExactPosition(feature.location.end + upper_block_size)
+    record.features = sorted(record.features, key=lambda f: f.location.start)
+
+    # Rotate sequence and trim
+    sequence = record.seq[upper_block_offset:] + record.seq[:upper_block_offset]
+    record.seq = sequence[:record.features[-1].location.end]
+    logging.warning('The contig "%s" has been rotated for the graphical output', record.name)
 
 
 def create_graphic(records, prefix):
