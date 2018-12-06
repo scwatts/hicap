@@ -151,7 +151,7 @@ def find_proximal_fragments(region_groups, hits_remaining, contig_fasta):
             hit.broken = True
 
 
-def get_proximal_ranges(hits, contig_fasta):
+def get_proximal_ranges(hits, contig_fastas):
     contig_ranges = dict()
     for contig, hits in sort_hits_by_contig(hits).items():
         first_hit, *hits_sorted = sorted(hits, key=lambda h: h.orf.start)
@@ -177,16 +177,18 @@ def get_proximal_ranges(hits, contig_fasta):
     allow_near_boundary = False
     for contig, ranges in contig_ranges.items():
         contig_start_pad = 2000
-        contig_end_pad = len(contig_fasta[contig]) - 2000
+        contig_end_pad = len(contig_fastas[contig]) - 2000
         if any(min(r) <= contig_start_pad or max(r) >= contig_end_pad for r in ranges):
             allow_near_boundary = True
             break
     if allow_near_boundary:
         # Blindly add additional ranges, may overlap
-        for contig in contig_ranges:
-            right_start = len(contig_fasta[contig]) - 2000
+        for contig in contig_fastas:
+            if contig not in contig_ranges:
+                contig_ranges[contig] = list()
+            right_start = len(contig_fastas[contig]) - 2000
             contig_ranges[contig].append(range(0, 2000))
-            contig_ranges[contig].append(range(right_start, len(contig_fasta[contig])))
+            contig_ranges[contig].append(range(right_start, len(contig_fastas[contig])))
 
     return contig_ranges
 
