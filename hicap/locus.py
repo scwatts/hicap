@@ -316,7 +316,7 @@ def blast_missing_genes(region_groups, contig_fastas, database_fps):
     orfs = {hit.orf for hit in hits}
     orf_ranges = [range(orf.start, orf.end) for orf in orfs]
     for hit in hits_filtered:
-        if any(hit.qstart in r or hit.qend in r for r in orf_ranges):
+        if any(hit.seq_section.qstart in r or hit.seq_section.qend in r for r in orf_ranges):
             continue
         hits_selected.add(hit)
 
