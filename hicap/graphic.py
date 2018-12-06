@@ -30,10 +30,23 @@ COLOURS_BROKEN = {
 LABEL_SIZE = 12
 TRACK_LABEL_SIZE = 18
 
+# Groups show in brackets
+# '(90) 56.775, (1709.957) 56.775, 1709.957 93.225, 90 93.225'
 HPOINTS_RE = re.compile(r'^([0-9.]+)[^,]+, ([0-9.]+).+$')
+
+# '90 56.775, 1709.957 56.775, 1709.957 93.225, 90 (93.225)'
 VPOINTS_RE = re.compile(r'^.+ ([0-9.]+)$')
+
+# 'M (1709.957101),56.775000 L (1709.957101),93.225000 Z'
 PATH_RE = re.compile(r'^M ([0-9.]+).+?L ([0-9.]+).+Z$')
+
+# Matches only inner brackets - outer are literal
+# ' matrix((1.000000),0.000000,-0.000000,1.000000,(132.856235),(93.225000))'
 LABEL_RE = re.compile(r'^ matrix\(([-10.]+).+? ?([0-9.]+), ?([0-9.]+)\)')
+
+#'(132.856235 65.8875), (163.357519 65.8875), (163.357519 84.1125), (132.856235 84.1125)'
+IS_PATH_RE = re.compile(r'([0-9\.]+ [0-9\.]+)(?:,|$)')
+
 
 TRANSFORM_TEMPLATE = ' matrix(1.000000, 0.000000, -0.000000, 1.000000, %s, %s)'
 
@@ -151,6 +164,9 @@ def patch_graphic(graphic_data):
     # Send the mid-lines backwards
     patch_track_midlines(visual_parent, track_hbounds, svg_tree)
 
+    # Move IS1016 to center of track
+    patch_is_annotations(svg_tree)
+
     # Fix reversed, mirrored labels and pad other labels
     # Genes on the non-coding strand have their labels upside down which is difficult to read
     patch_element_labels(svg_tree)
@@ -179,6 +195,25 @@ def patch_track_midlines(visual_parent, track_hbounds, svg_tree):
     # Insert track midpoint lines immediately after track background elements
     for line_element in line_elements:
         visual_parent.insert(len(track_hbounds), line_element)
+
+
+def patch_is_annotations(svg_tree):
+    '''Vertically center IS1016 annotations on the track'''
+    is_style = 'stroke: rgb(0%,0%,0%); stroke-linecap: butt; stroke-width: 1; fill: rgb(47%,65%,80%);'
+    is_elements = svg_tree.findall('.//*[@style="%s"]' % is_style)
+    for is_element in is_elements:
+        # Get move distance - four corners with an x and y
+        coords_str = IS_PATH_RE.findall(is_element.get('points'))
+        coord_gen = (coord.split(' ') for coord in coords_str)
+        coords = [(float(x), float(y)) for x, y in coord_gen]
+        move_dist = (coords[2][1] - coords[0][1]) / 2
+        # Apply and build points string
+        points_strings = list()
+        for x, y in coords:
+            points_strings.append('%s %s' % (x, y-move_dist))
+        points_string = ', '.join(points_strings)
+        # Assign new points string
+        is_element.attrib['points'] = points_string
 
 
 def patch_element_labels(svg_tree):
