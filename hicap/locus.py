@@ -193,8 +193,8 @@ def get_proximal_ranges(hits, contig_fastas):
     return contig_ranges
 
 
-def collect_nearby_orfs(region_groups, orfs_all):
-    hits_selected = {hit for group in region_groups.values() for hit in group.orf_hits}
+def collect_nearby_orfs(locus_data, orfs_all):
+    hits_selected = {hit for group in locus_data.regions.values() for hit in group.orf_hits}
     orfs_selected = sort_hits_by_orf(hits_selected)
     orfs_remaining = set(orfs_all) - set(orfs_selected)
 
@@ -205,14 +205,20 @@ def collect_nearby_orfs(region_groups, orfs_all):
     nearby_orfs = set()
     for contig, contig_hits in sort_hits_by_contig(hits_selected).items():
         orfs = run_nearby_orf_collection(contig, contig_hits, orfs_remaining)
-
         # Apply some sanity filtering here - not exposed to user
         orfs_filtered = set()
         for orf in orfs:
             if (orf.end - orf.start) <= 200:
                 continue
             orfs_filtered.add(orf)
-        nearby_orfs |= orfs_filtered
+        # Exclude ORFs which fall within IS1016 blast hits
+        orfs_selected = set()
+        is_bounds = [range(h.seq_section.start, h.seq_section.end) for h in locus_data.is_hits]
+        for orf in orfs_filtered:
+            if any(orf.start in r or orf.end in r for r in is_bounds):
+                continue
+            orfs_selected.add(orf)
+        nearby_orfs |= orfs_selected
     return nearby_orfs
 
 

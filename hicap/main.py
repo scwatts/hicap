@@ -59,8 +59,8 @@ def main():
     locus.blast_missing_genes(locus_data.regions, contig_fastas, args.gene_database_fps)
 
     # Collect ORFs not apart of the Hi cap loci in surrounding areas and search for IS1016
-    locus_data.nearby_orfs = locus.collect_nearby_orfs(locus_data.regions, orfs_all)
     locus_data.is_hits = locus.discover_is1016(locus_data.regions, contig_fastas, args.is_database_fp)
+    locus_data.nearby_orfs = locus.collect_nearby_orfs(locus_data, orfs_all)
 
     # Generate output data and files
     report.write_outputs(locus_data, args)
