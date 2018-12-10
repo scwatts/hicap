@@ -71,7 +71,7 @@ def collect_neighbourhood_hits(start, end, contig, orfs_hits):
 
 def determine_serotype(orf, orf_hits, distance, orfs_hits):
     # Check if we have unambiguous hits
-    gene_hits = {orf_hit.sseqid for orf_hit in orf_hits}
+    gene_hits = {orf_hit.sseqid for orf_hit in orf_hits if orf_hit.region == 'two'}
     if len(gene_hits) == 1:
         return database.get_serotype_group(*gene_hits)
 
@@ -80,25 +80,26 @@ def determine_serotype(orf, orf_hits, distance, orfs_hits):
     end = orf.end + distance
     neighbour_orfs_hits = collect_neighbourhood_hits(start, end, orf.contig, orfs_hits)
     for neighbour_orf_hits in neighbour_orfs_hits:
-        neighbour_gene_hits = {orf_hit.sseqid for orf_hit in neighbour_orf_hits}
+        neighbour_gene_hits = {orf_hit.sseqid for orf_hit in neighbour_orf_hits if orf_hit.region == 'two'}
         if len(neighbour_gene_hits) == 1:
             return database.get_serotype_group(*neighbour_gene_hits)
 
     # See if there are hits anywhere which are unambiguous
     all_unambiguous_st = set()
     for all_orf_hits in orfs_hits.values():
-        all_gene_hits = {orf_hit.sseqid for orf_hit in all_orf_hits}
+        all_gene_hits = {orf_hit.sseqid for orf_hit in all_orf_hits if orf_hit.region == 'two'}
         if len(all_gene_hits) == 1:
             serotype = database.get_serotype_group(*all_gene_hits)
             all_unambiguous_st.add(serotype)
     # Unambiguous hits must only be present for one of the ORF hits
-    unambiguous_st = all_unambiguous_st & {database.get_serotype_group(gene) for gene in gene_hits}
+    unambiguous_st = all_unambiguous_st & {database.get_serotype_group(orf.sseqid) for orf in orf_hits}
     if len(unambiguous_st) == 1:
         return list(unambiguous_st)[0]
 
     # Make best guess
-    neighbourhood_hits = {hit for hits in neighbour_orfs_hits for hit in hits}
-    return most_frequent_serotype(neighbourhood_hits)
+    neighbourhood_hits_all = {hit for hits in neighbour_orfs_hits for hit in hits}
+    neighbourhood_hits_rtwo = {h for h in neighbourhood_hits_all if h.region == 'two'} | orf_hits
+    return most_frequent_serotype(neighbourhood_hits_rtwo)
 
 
 def most_frequent_serotype(hits):

@@ -137,7 +137,8 @@ def find_proximal_fragments(region_groups, hits_remaining, contig_fasta):
         if region in {'one', 'three'}:
             [hit_best] = region_common.select_best_hits(orf_hits)
         else:
-            serotype = region_specific.determine_serotype(orf, orf_hits, region_specific.NEIGHBOUR_DIST, hits)
+            orfs_hits = sort_hits_by_orf(hits)
+            serotype = region_specific.determine_serotype(orf, orf_hits, region_specific.NEIGHBOUR_DIST, orfs_hits)
             hit_best = region_specific.perform_selection(orf_hits, serotype)
         hits_selected[region].add(hit_best)
 
