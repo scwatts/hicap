@@ -47,7 +47,7 @@ LABEL_RE = re.compile(r'^ matrix\(([-10.]+).+? ?([0-9.]+), ?([0-9.]+)\)')
 # Matches all instances of:
 # '(172.493076 69.532500),' or '(172.493076 62.242500)$' (endline is not literal)
 # in a points array for an arrow
-IS_PATH_RE = re.compile(r'([0-9.]+ [0-9.]+)(?:,|$)')
+SA_PATH_RE = re.compile(r'([0-9.]+ [0-9.]+)(?:,|$)')
 
 
 TRANSFORM_TEMPLATE = ' matrix(1.000000, 0.000000, -0.000000, 1.000000, %s, %s)'
@@ -104,13 +104,14 @@ def create_graphic(records, prefix):
             # TODO: can we clean this up a little?
             # Accept quals as list or single item for interop
             notes = process_notes(get_qualifier(feature.qualifiers['note']))
-            sigil = 'BIGARROW'
             if notes['region'] != 'none':
                 gene_name = get_qualifier(feature.qualifiers['gene'])
                 gene_border = reportlab.lib.colors.HexColor(0x000000) # black
+                sigil = 'BIGARROW'
             else:
                 gene_name = ''
                 gene_border = reportlab.lib.colors.HexColor(0x808080) # gray
+                sigil = 'ARROW'
 
             if notes['fragment']:
                 # Truncated hit with ORF
@@ -123,7 +124,6 @@ def create_graphic(records, prefix):
                 # IS hit
                 gene_colour = reportlab.lib.colors.HexColor(0x7aa7cc) # dark(ish) pastel blue
                 gene_border = reportlab.lib.colors.HexColor(0x000000) # black
-                sigil = 'ARROW'
             else:
                 # Complete hit with ORF
                 gene_colour = COLOURS_COMPLETE[notes['region']]
@@ -173,8 +173,8 @@ def patch_graphic(graphic_data):
     # Send the mid-lines backwards
     patch_track_midlines(visual_parent, track_hbounds, svg_tree)
 
-    # Move IS1016 to center of track
-    patch_is_annotations(svg_tree)
+    # Move small arrows to center of track
+    patch_small_arrow_annotations(svg_tree)
 
     # Fix reversed, mirrored labels and pad other labels
     # Genes on the non-coding strand have their labels upside down which is difficult to read
@@ -206,25 +206,34 @@ def patch_track_midlines(visual_parent, track_hbounds, svg_tree):
         visual_parent.insert(len(track_hbounds), line_element)
 
 
-def patch_is_annotations(svg_tree):
-    '''Vertically center IS1016 annotations on the track'''
-    is_style = 'stroke: rgb(0%,0%,0%); stroke-linecap: round; stroke-width: 1; fill: rgb(47%,65%,80%);'
-    is_elements = svg_tree.findall('.//*[@style="%s"]' % is_style)
-    for is_element in is_elements:
-        # Get arrow point coordinates and calculate move distance
-        coords_str = IS_PATH_RE.findall(is_element.get('points'))
+def patch_small_arrow_annotations(svg_tree):
+    '''Vertically center small arrow annotations on the track'''
+    # Collect all elements to center
+    element_styles = [
+            'stroke: rgb(0%,0%,0%); stroke-linecap: round; stroke-width: 1; fill: rgb(47%,65%,80%);',
+            'stroke: rgb(50%,50%,50%); stroke-linecap: round; stroke-width: 1; fill: rgb(82%,82%,82%);',
+            ]
+    elements = list()
+    for style in element_styles:
+        elements.extend(svg_tree.findall('.//*[@style="%s"]' % style))
+
+    for element in elements:
+        # Get arrow point coordinates
+        coords_str = SA_PATH_RE.findall(element.get('points'))
         coord_gen = (coord.split(' ') for coord in coords_str)
         coords = [(float(x), float(y)) for x, y in coord_gen]
-        coord_lowest = min(coords, key=lambda c: c[1])
-        coord_highest = max(coords, key=lambda c: c[1])
-        move_dist = (coord_lowest[1] - coord_highest[1]) / 2
+        # Calculate move distance - half the height of the arrow
+        # Determine move direction by finding direction of arrow
+        move_dist = (coords[2][1] - coords[4][1]) / 2
+        if coords[0][0] > coords[1][0]:
+            move_dist *= -1
         # Apply move distance and build points string
         points_strings = list()
         for x, y in coords:
             points_strings.append('%s %s' % (x, y-move_dist))
         points_string = ', '.join(points_strings)
         # Assign new points string
-        is_element.attrib['points'] = points_string
+        element.attrib['points'] = points_string
 
 
 def patch_element_labels(svg_tree):
