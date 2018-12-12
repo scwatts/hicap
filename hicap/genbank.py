@@ -104,13 +104,13 @@ def add_locus_feature(gb_records):
     locus_features = 0
     for record in gb_records:
         # Skip records with no cap hits
-        if all(feature.qualifiers['gene'].startswith('orf_') for feature in record.features):
+        if not any('region' in feature.qualifiers['note'] for feature in record.features):
             continue
         # Create qualifiers
         locus_features += 1
         quals = {'note': 'locus_%s' % locus_features}
-        # Location
-        flocs = (f.location for f in record.features if not f.qualifiers['gene'].startswith('orf_'))
+        # Location - only include features that are part of the locus
+        flocs = (f.location for f in record.features if 'region' in f.qualifiers['note'])
         flocs = sorted(flocs, key=lambda l: l.start)
         start, end = flocs[0].start, flocs[-1].end
         floc = Bio.SeqFeature.FeatureLocation(start=start, end=end)
