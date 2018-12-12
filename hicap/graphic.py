@@ -44,8 +44,10 @@ PATH_RE = re.compile(r'^M ([0-9.]+).+?L ([0-9.]+).+Z$')
 # ' matrix((1.000000),0.000000,-0.000000,1.000000,(132.856235),(93.225000))'
 LABEL_RE = re.compile(r'^ matrix\(([-10.]+).+? ?([0-9.]+), ?([0-9.]+)\)')
 
-#'(132.856235 65.8875), (163.357519 65.8875), (163.357519 84.1125), (132.856235 84.1125)'
-IS_PATH_RE = re.compile(r'([0-9\.]+ [0-9\.]+)(?:,|$)')
+# Matches all instances of:
+# '(172.493076 69.532500),' or '(172.493076 62.242500)$' (endline is not literal)
+# in a points array for an arrow
+IS_PATH_RE = re.compile(r'([0-9.]+ [0-9.]+)(?:,|$)')
 
 
 TRANSFORM_TEMPLATE = ' matrix(1.000000, 0.000000, -0.000000, 1.000000, %s, %s)'
@@ -118,11 +120,10 @@ def create_graphic(records, prefix):
                 gene_colour = COLOURS_BLAST[notes['region']]
                 gene_border = reportlab.lib.colors.HexColor(0x00000000, hasAlpha=True) # remove gene border
             elif notes['is']:
-                # IS hit - force strand to have a smaller box which we move during patching
+                # IS hit
                 gene_colour = reportlab.lib.colors.HexColor(0x7aa7cc) # dark(ish) pastel blue
                 gene_border = reportlab.lib.colors.HexColor(0x000000) # black
-                feature.strand = 1
-                sigil = 'BOX'
+                sigil = 'ARROW'
             else:
                 # Complete hit with ORF
                 gene_colour = COLOURS_COMPLETE[notes['region']]
@@ -207,15 +208,17 @@ def patch_track_midlines(visual_parent, track_hbounds, svg_tree):
 
 def patch_is_annotations(svg_tree):
     '''Vertically center IS1016 annotations on the track'''
-    is_style = 'stroke: rgb(0%,0%,0%); stroke-linecap: butt; stroke-width: 1; fill: rgb(47%,65%,80%);'
+    is_style = 'stroke: rgb(0%,0%,0%); stroke-linecap: round; stroke-width: 1; fill: rgb(47%,65%,80%);'
     is_elements = svg_tree.findall('.//*[@style="%s"]' % is_style)
     for is_element in is_elements:
-        # Get move distance - four corners with an x and y
+        # Get arrow point coordinates and calculate move distance
         coords_str = IS_PATH_RE.findall(is_element.get('points'))
         coord_gen = (coord.split(' ') for coord in coords_str)
         coords = [(float(x), float(y)) for x, y in coord_gen]
-        move_dist = (coords[2][1] - coords[0][1]) / 2
-        # Apply and build points string
+        coord_lowest = min(coords, key=lambda c: c[1])
+        coord_highest = max(coords, key=lambda c: c[1])
+        move_dist = (coord_lowest[1] - coord_highest[1]) / 2
+        # Apply move distance and build points string
         points_strings = list()
         for x, y in coords:
             points_strings.append('%s %s' % (x, y-move_dist))
