@@ -17,7 +17,7 @@ def initialise_logging(log_level, log_file):
     log_handles = list()
     log_handles.append(logging.StreamHandler())
     # Ensure that parent dir of log file exists, otherwise raise error during check_arguments
-    if log_file and log_file.exists():
+    if log_file and log_file.parent.exists():
         log_handles.append(logging.FileHandler(log_file, mode='w'))
 
     log_message_format = '%(asctime)s %(levelname)s: %(message)s'
