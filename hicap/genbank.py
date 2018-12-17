@@ -135,6 +135,13 @@ def collect_contig_sequences(fasta, locus_data):
         except:
             contig_elements[element.contig] = {element}
 
+    # Add nearby ORF hits
+    for orf in locus_data.nearby_orfs:
+        try:
+            contig_elements[orf.contig].add(orf)
+        except:
+            contig_elements[orf.contig] = {orf}
+
     contig_sequences = dict()
     for contig, elements in contig_elements.items():
         # Get the most left and most right element associated with a hit
