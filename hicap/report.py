@@ -28,7 +28,8 @@ def write_outputs(locus_data, args):
     # Report
     prefix = args.query_fp.stem
     output_report_fp = pathlib.Path(args.output_dir, '%s.tsv' % prefix)
-    summary_data = create_summary(locus_data)
+    fasta = utility.read_fasta(args.query_fp)
+    summary_data = create_summary(locus_data, fasta)
     with output_report_fp.open('w') as fh:
         write_summary(summary_data, prefix, fh)
 
@@ -40,7 +41,6 @@ def write_outputs(locus_data, args):
     # Genbank spec requires contig names/ locus names of less than 20 characters but
     # we want full contigs names in the graphic. So we'll truncate the names after
     # generating the graphic
-    fasta = utility.read_fasta(args.query_fp)
     contig_sequences = genbank.collect_contig_sequences(fasta, locus_data)
     genbank_data = genbank.create_genbank_record(locus_data, contig_sequences)
 
@@ -72,7 +72,7 @@ def write_outputs(locus_data, args):
         Bio.SeqIO.write(genbank_data, fh, 'genbank')
 
 
-def create_summary(locus_data):
+def create_summary(locus_data, contig_sequences):
     summary_data = SummaryData()
     for region in ('one', 'two', 'three'):
         group = locus_data.regions[region]
@@ -89,7 +89,7 @@ def create_summary(locus_data):
         summary_data.truncated_genes[region] = {hit for hit in group.orf_hits if hit.broken}
         summary_data.hits_without_orfs[region] = {hit for hit in group.blast_hits}
         # Duplication. Verbose for clarity
-        if group.orf_hits and is_duplicated(group.orf_hits):
+        if group.orf_hits and is_duplicated(group.orf_hits, contig_sequences):
             summary_data.duplicated = True
 
     # Serotype and count of IS1016 hits
@@ -186,7 +186,7 @@ def get_gene_names(hits):
     return gene_names
 
 
-def is_duplicated(hits):
+def is_duplicated(hits, contig_sequences):
     genes_hits = locus.sort_hits_by_gene(hits)
     gene_counts = dict.fromkeys(genes_hits)
     # Sometimes a single gene is broken into multiple ORFs but wrt to duplication should
@@ -195,7 +195,24 @@ def is_duplicated(hits):
         hit_first, *hits_sorted = sorted(gene_hits, key=lambda h: min(h.orf.start, h.orf.end))
         upper_bound = min(hit_first.orf.start, hit_first.orf.end) + hit_first.slen * 1.5
         gene_counts[gene] = 1
+
+        # If gene is close to a contig boundary, check nearby other boundaries for fragments
+        contig_padding = hit_first.slen * 1.5
+        near_bounds = near_contig_bounds(hit_first, contig_sequences, contig_padding)
+
+        # Check for duplication
         for hit in hits_sorted:
-            if max(hit.orf.start, hit.orf.end) >= upper_bound:
-                gene_counts[gene] += 1
+            if max(hit.orf.start, hit.orf.end) < upper_bound:
+                continue
+            if near_bounds and near_contig_bounds(hit, contig_sequences, contig_padding):
+                continue
+            gene_counts[gene] += 1
     return any(gene_count > 1 for gene_count in gene_counts.values())
+
+
+def near_contig_bounds(hit, contig_sequences, padding):
+    # TODO: similar code is used elsewhere, refactor and simplify
+    contig = hit.orf.contig
+    contig_start_pad = padding
+    contig_end_pad = len(contig_sequences[contig]) - padding
+    return hit.orf.start <= contig_start_pad or hit.orf.end >= contig_end_pad
