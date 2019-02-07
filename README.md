@@ -12,6 +12,7 @@ Identify *cap* locus serotype and structure in your *Haemophilus influenzae* ass
 ## Table of contents
 * [Table of contents](#table-of-contents)
 * [Introduction](#introduction)
+* [Citation](#citation)
 * [Requirements](#requirements)
 * [Installation](#installation)
 * [Outputs](#outputs)
@@ -29,6 +30,11 @@ often subject to structural changes (e.g. duplication, deletion) making the proc
 of loci difficult.
 
 `hicap` automates identification of the *cap* locus, describes the structural layout, and performs *in silico* serotyping.
+
+
+## Citation
+If you use this tool, please cite the `hicap` preprint:
+* [Watts, S.C. and Holt, K.E. (2019). hicap: *in silico* serotyping of the *Haemophilus influenzae* capsule locus. bioRxiv doi: 10.1101/543454](https://doi.org/10.1101/543454)
 
 
 ## Requirements
@@ -121,6 +127,7 @@ column:
 | `genes_identified`    | *cap* genes identified. genes on different contigs delimited by`;`. truncation shown by trailing `*`  |
 | `locus_location`      | location of *cap* genes. contigs delimited by `;` and matches `gene_identified` positions             |
 | `region_n_genes`      | expected and identified genes in region `n`. missing names are shown when applicable                  |
+| `IS1016_hits`         | count of IS*1016* hits found                                                                          |
 
 
 ### Genbank
@@ -130,26 +137,27 @@ of the *cap* locus and surrounding region. This behaviour can be overridden to i
 `--full-sequence` on the command line.
 
 *cap* locus regions are annotated by the `misc_feature` feature with a `/note` qualifier specifying an identifier for that
-specific region. *cap* genes are given the `CDS` feature with a `/gene_name` qualifier set to the appropriate gene name. ORFs
-found nearby that are not typically part of the *cap* locus are also marked as a `CDS` feature but `/gene_name` is set to
-`orf` with an incremental counter suffix for differentiation.
+specific region. *cap* genes are given the `CDS` feature with a `/gene` qualifier set to the appropriate gene name. ORFs
+found nearby that are not typically part of the *cap* locus are also marked as a `CDS` feature but `/gene` is set to `orf`
+with an incremental counter suffix for differentiation.
 
 All `CDS` features have a `/note` qualifier which contains various details, each separated by `;`. Possible values are
-`region_one`, `region_two`, `region_three`, `fragment`, `misc_orf`.
+`region_one`, `region_two`, `region_three`, `fragment`, `no_orf`, `insertion_sequence`, `misc_orf`.
 
 
 ### Graphic
 The graphical output provides a visualisation of the annotated *cap* locus. The output format is `svg` and can be viewed in
-any modern browers or imagine viewer with `svg` support. Genes of each region are coloured differently; blue,
-red, and yellow for `region I`, `region II`, and `region III` respectively. Truncated ORFs are coloured using a darker,
-desaturated corresponding region colour. ORFs which are not part of the *cap* locus are left grey.
+any modern browers or imagine viewer with `svg` support. Genes of each region are coloured differently; green, red, and
+yellow for `region I`, `region II`, and `region III` respectively. Truncated ORFs are coloured using a darker, desaturated
+corresponding region colour. ORFs which are not part of the *cap* locus are left grey. Regions with homology to IS*1016* are
+annotated using small blue arrows.
 
-![single track](https://image.ibb.co/iokMTA/example-type-a-single-track.png)
+![single track](https://i.ibb.co/WWPFFCd/Hi76.png)
 
 Each track of the visualisation represents a contig. The *cap* locus of the example below is located on three different
 contigs.
 
-![single track](https://image.ibb.co/jFyEgV/example-type-b-multi-track.png)
+![multi track](https://i.ibb.co/fGzyxL8/Hi83.png)
 
 
 ## Example
