@@ -1,6 +1,3 @@
-import logging
-
-
 import Bio.Alphabet
 import Bio.Graphics.GenomeDiagram
 import Bio.Seq
@@ -16,7 +13,6 @@ SEQ_PADDING = 1000
 
 def create_genbank_record(locus_data, contig_sequences):
     # Create base records
-    logging.info('Creating genbank records')
     position_deltas, gb_records = create_base_records(contig_sequences)
 
     # Add ORF hits

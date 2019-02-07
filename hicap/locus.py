@@ -1,3 +1,4 @@
+import logging
 import pathlib
 import tempfile
 
@@ -287,6 +288,7 @@ def blast_missing_genes(region_groups, contig_fastas, database_fps):
 
     if not missing_genes:
         return
+    logging.info('Performing homology searchfor missing genes')
 
     # Get nucleotide sequence including and around locus
     locus_sequences, query_contigs, query_offsets = collect_proximal_locus_sequence(region_groups, contig_fastas)

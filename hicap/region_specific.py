@@ -1,3 +1,6 @@
+import logging
+
+
 from . import database
 from . import locus
 
@@ -7,6 +10,7 @@ NEIGHBOUR_DIST = 5000
 
 def discover_clusters(hits_complete, hits_remaining, filter_params):
     # Find best hits, determine missing genes, find missing genes, and select best
+    logging.info('Predicting serotype')
     hits_selected, serotypes = select_best_genes(hits_complete, NEIGHBOUR_DIST)
     genes_missing = dict()
     for serotype in serotypes:
@@ -16,6 +20,7 @@ def discover_clusters(hits_complete, hits_remaining, filter_params):
     hits_filtered = database.filter_hits(hits_remaining, **filter_params)
     hits_missing = locus.collect_missing_genes(hits_filtered, genes_missing)
     if hits_missing:
+        logging.info('Collecting missing region two genes')
         for hit in hits_missing:
             hit.broken = True
         hits_candidate = hits_selected | hits_missing

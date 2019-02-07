@@ -31,16 +31,13 @@ class SeqSection:
 
 
 def collect_orfs(fasta_fp, model_fp):
-    logging.info('Collecting ORFs from FASTA file')
+    logging.info('Collecting ORFs from input assembly')
     prodigal_stdout = annotate(fasta_fp, model_fp)
     orfs = process_prodigal_stdout(prodigal_stdout)
 
-    logging.info('Extracting nucleotide sequence of ORFs')
     fasta = utility.read_fasta(fasta_fp)
     for orf in orfs:
         orf.sequence = fasta[orf.contig][orf.start-1:orf.end]
-
-    logging.info('Found %s ORFs', len(orfs))
     return orfs
 
 

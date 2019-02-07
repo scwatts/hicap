@@ -91,21 +91,3 @@ def read_fasta(filepath):
         logging.error('Could not parse any valid FASTA records from %s', filepath)
         sys.exit(1)
     return fasta
-
-
-def log_search_hits_found(hits):
-    database_hits = dict()
-    for region, region_hits in locus.sort_hits_by_region(hits).items():
-        for hit in region_hits:
-            if region == 'two':
-                dbname = database.get_serotype_group(hit.sseqid)
-            else:
-                dbname = hit.sseqid
-            if dbname not in database_hits:
-                database_hits[dbname] = 1
-            else:
-                database_hits[dbname] += 1
-    for dbname, hit_count in database_hits.items():
-        message = 'Found %s %s for %s'
-        hit_quant = 'hits' if hit_count > 1 else 'hit'
-        logging.info(message, hit_count, hit_quant, dbname)

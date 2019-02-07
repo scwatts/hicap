@@ -1,3 +1,6 @@
+import logging
+
+
 from . import database
 from . import locus
 
@@ -9,6 +12,7 @@ def discover_clusters(hits_complete, hits_remaining, region, filter_params):
     hits_missing = locus.collect_missing_genes(hits_filtered, genes_missing)
     # Select best hits for each discovered missing ORF
     if hits_missing:
+        logging.info('Collecting missing region %s genes', region)
         hits_broken = select_best_hits(hits_missing)
         for hit in hits_broken:
             hit.broken = True
