@@ -24,10 +24,10 @@ Identify *cap* locus serotype and structure in your *Haemophilus influenzae* ass
 ## Introduction
 The *cap* locus of *H. influenzae* are categorised into 6 different groups based on serology (a-f). There are three
 functionally distinct regions of the *cap* locus, designated `region I`, `region II`, and `region III`. Genes within `region
-I` (`bexABCD`) and `region III` (`hcsAB`) are associated with membrane transport and post-translation modification. The
-`region II` genes encode serotype specific proteins, with each serotype (a-f) having a distinct set of genes. *cap* loci are
-often subject to structural changes (e.g. duplication, deletion) making the process of *in silico* typing and characterisation
-of loci difficult.
+I` (`bexABCD`) and `region III` (`hcsAB`) are associated with transport and post-translation modification. The `region II`
+genes encode serotype specific proteins, with each serotype (a-f) having a distinct set of genes. *cap* loci are often
+subject to structural changes (e.g. duplication, deletion) making the process of *in silico* typing and characterisation of
+loci difficult.
 
 `hicap` automates identification of the *cap* locus, describes the structural layout, and performs *in silico* serotyping.
 
@@ -49,7 +49,12 @@ There are a couple of software dependencies that are required.
 
 
 ## Installation
-Recommended method of installation is via pip:
+The recommended method of installation is bioconda:
+```bash
+conda install hicap
+```
+
+Otherwise you can install `hicap` with pip:
 ```bash
 # Install into user directory via pip
 pip3 install --user git+https://github.com/scwatts/hicap.git
@@ -58,7 +63,7 @@ pip3 install --user git+https://github.com/scwatts/hicap.git
 hicap --help
 ```
 
-Alternatively, you can simply clone the git repo and use the `hicap-runner.py` script:
+Or clone the git repo and use the `hicap-runner.py` script:
 ```bash
 # Install into current directory by cloning
 git clone https://github.com/scwatts/hicap.git
@@ -66,6 +71,9 @@ git clone https://github.com/scwatts/hicap.git
 # Check install
 ./hicap/hicap-runner.py --help
 ```
+
+
+If installing `hicap` by the `pip` or `clone` method, you'll need to satisfy all software dependencies manually.
 
 
 ## Usage
