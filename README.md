@@ -51,7 +51,7 @@ There are a couple of software dependencies that are required.
 ## Installation
 The recommended method of installation is bioconda:
 ```bash
-conda install hicap
+conda install -c bioconda -c conda-forge hicap
 ```
 
 Otherwise you can install `hicap` with pip:
