@@ -33,8 +33,8 @@ loci difficult.
 
 
 ## Citation
-If you use this tool, please cite the `hicap` preprint:
-* [Watts, S.C. and Holt, K.E. (2019). hicap: *in silico* serotyping of the *Haemophilus influenzae* capsule locus. bioRxiv doi: 10.1101/543454](https://doi.org/10.1101/543454)
+If you use this tool, please cite the `hicap` paper:
+* Watts, S. C., & Holt, K. E. (2019). hicap: <em>in silico</em> serotyping of the <em>Haemophilus influenzae</em> capsule locus. Journal of Clinical Microbiology, JCM.00190-19. https://doi.org/10.1128/JCM.00190-19
 
 
 ## Requirements
