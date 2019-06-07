@@ -176,6 +176,7 @@ To provide an example of `hicap` usage, we will annotate the *cap* locus in the 
 | `Hi75`        | `SAMEA33515668`       | Downloaded SRA reads (`ERX1834398`; ion torrent) and assembled locally    |
 | `Hi84`        | `SAMEA33522418`       | Downloaded SRA reads (`ERX1834407`; ion torrent) and assembled locally    |
 | `M21328`      | `SAMN09704914`        | Downloaded GenBank assembly (`GCA_003497005.1`)                           |
+| `M26329`      | `SAMN09704930`        | Downloaded GenBank assembly (`GCA_003492045.1`)                           |
 | `PTHi-1539`   | `SAMEA4643429`        | Downloaded GenBank assembly (`GCA_900407865.1`)                           |
 
 For `Hi75` and `Hi84` reads were assembled using SPAdes 3.13.0. All assemblies have been placed into the `example/`
