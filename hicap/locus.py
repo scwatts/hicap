@@ -90,7 +90,7 @@ def locate_fragmented_region_two(groups, hits_remaining, filter_params):
     hits_rtwo_all = {hit for hit in hits_remaining if hit.sseqid in genes_rtwo_all}
     hits_rtwo_filtered = database.filter_hits(hits_rtwo_all, **filter_params)
     if not hits_rtwo_filtered:
-        return Region({})
+        return groups['two']
 
     # Hits upstream and downstream of region one and three
     hits_candidate = set()
