@@ -154,7 +154,9 @@ def write_summary(data, prefix, fh):
     for contig, contig_hits in data.hits_by_contig.items():
         hits_sorted = sorted(contig_hits, key=lambda h: locus.get_hit_start(h))
         contig_genes[contig] = ','.join(get_gene_names(hits_sorted))
-        contig_bounds[contig] = '%s:%s-%s' % (contig, hits_sorted[0].orf.start, hits_sorted[-1].orf.end)
+        start = locus.get_hit_start(hits_sorted[0])
+        end = locus.get_hit_end(hits_sorted[-1])
+        contig_bounds[contig] = '%s:%s-%s' % (contig, start, end)
     print(*contig_genes.values(), sep=';', end='\t', file=fh)
     print(*contig_bounds.values(), sep=';', end='\t', file=fh)
 

@@ -459,8 +459,17 @@ def sort_orfs_by_contig(orfs):
 
 
 def get_hit_start(hit):
-    '''Get the starting position in the query sequence of a hit'''
-    if getattr(hit, 'orf'):
-        return hit.orf.start
-    elif getattr(hit, 'seq_section'):
-        return hit.seq_section.start
+    return get_hit_bound(hit, 'start')
+
+
+def get_hit_end(hit):
+    return get_hit_bound(hit, 'end')
+
+
+def get_hit_bound(hit, bound):
+    if hit.orf:
+        return getattr(hit.orf, bound)
+    elif hit.seq_section:
+        return getattr(hit.seq_section, bound)
+    else:
+        return None
