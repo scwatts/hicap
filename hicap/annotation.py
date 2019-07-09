@@ -45,7 +45,8 @@ def annotate(query_fp, model_fp):
     logging.debug('Annotating %s using Prodigal', query_fp)
     command = 'prodigal -f sco -i %s -m -t %s'
     result = utility.execute_command(command % (query_fp, model_fp))
-    return result.stdout
+    # Prodigal includes \r from FASTAs, causing problems with the output. Remove \r here
+    return result.stdout.replace('\r', '')
 
 
 def process_prodigal_stdout(prodigal_results):

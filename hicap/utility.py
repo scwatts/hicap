@@ -9,10 +9,6 @@ import sys
 import Bio.SeqIO.FastaIO
 
 
-from . import database
-from . import locus
-
-
 def initialise_logging(log_level, log_file):
     log_handles = list()
     log_handles.append(logging.StreamHandler())
@@ -38,8 +34,10 @@ def check_filepath_exists(filepath, message_format):
 
 def execute_command(command, check=True):
     logging.debug('command: %s', command)
-    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True,
-                            encoding='utf-8')
+    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+    # Manually decoding as subprocess.run decoding replaces \r with \n
+    result.stdout = result.stdout.decode()
+    result.stderr = result.stderr.decode()
     if check and result.returncode != 0:
         logging.critical('Failed to run command: %s', result.args)
         logging.critical('stdout: %s', result.stdout)
