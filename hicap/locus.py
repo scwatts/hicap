@@ -381,11 +381,31 @@ def discover_is1016(region_groups, contig_fastas, database_fp):
         hits_filtered.add(hit)
 
     # TODO: set threshold to define a hit has truncated/ broken
+    # TODO: rather than selecting proximal regions and then BLASTing (eventhough this is reusing
+    # code), it is simplier to BLAST entire genome and select nearby hits
 
     # Create and add annotation.SeqSection to each blast hit
+    hits_contigs = dict()
     for hit in hits_filtered:
         hit.seq_section = create_seq_section(hit, query_offsets, query_contigs)
-    return hits_filtered
+        if hit.seq_section.contig not in hits_contigs:
+            hits_contigs[hit.seq_section.contig] = set()
+        hits_contigs[hit.seq_section.contig].add(hit)
+
+    # Remove duplicates
+    hits_selected = set()
+    for hits in hits_contigs.values():
+        exclude = set()
+        hit_list = list(hits)
+        for i in range(len(hits)-1):
+            for j in range(i+1, len(hits)):
+                ss_i = hit_list[i].seq_section
+                ss_j = hit_list[j].seq_section
+                if ss_i.start == ss_j.start or ss_i.end == ss_j.end:
+                    exclude.add(hit_list[i])
+        hits_selected |= (hits ^ exclude)
+
+    return hits_selected
 
 
 def get_all_hits(locus_data):
