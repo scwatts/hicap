@@ -26,7 +26,7 @@ class SummaryData:
 
 def write_outputs(locus_data, args):
     # Report
-    prefix = args.query_fp.stem
+    prefix = pathlib.Path(args.query_fp.stem).stem if args.query_fp.name.endswith('gz') else args.query_fp.stem
     output_report_fp = pathlib.Path(args.output_dir, '%s.tsv' % prefix)
     fasta = utility.read_fasta(args.query_fp)
     summary_data = create_summary(locus_data, fasta)

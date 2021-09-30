@@ -43,7 +43,7 @@ def collect_orfs(fasta_fp, model_fp):
 
 def annotate(query_fp, model_fp):
     logging.debug('Annotating %s using Prodigal', query_fp)
-    command = 'prodigal -f sco -i %s -m -t %s'
+    command = 'gzip -c -d %s | prodigal -f sco -i /dev/stdin -m -t %s' if query_fp.name.endswith('gz') else 'prodigal -f sco -i %s -m -t %s'
     result = utility.execute_command(command % (query_fp, model_fp))
     # Prodigal includes \r from FASTAs, causing problems with the output. Remove \r here
     return result.stdout.replace('\r', '')
