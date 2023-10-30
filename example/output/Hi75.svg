@@ -1,0 +1,83 @@
+<ns0:svg xmlns:ns0="http://www.w3.org/2000/svg" fill-rule="evenodd" height="450" preserveAspectRatio="xMinYMin meet" version="1.0" viewBox="0 0 1800 450" width="1800">
+	<ns0:title>...</ns0:title>
+	<ns0:desc>...</ns0:desc>
+	<ns0:clipPath id="clip">
+		<ns0:rect height="450" width="1800" x="0" y="0" />
+	</ns0:clipPath>
+	<ns0:g id="group" style="clip-path: url(#clip)" transform="scale(1,-1) translate(0,-450)">
+		<ns0:g transform="">
+			<ns0:polygon points="90.000000 85.275000, 284.023520 85.275000, 284.023520 121.725000, 90.000000 121.725000" style="stroke: rgb(96%,96%,96%); stroke-linecap: butt; stroke-width: 1; fill: rgb(96%,96%,96%);" />
+			<ns0:polygon points="90.000000 206.775000, 284.250315 206.775000, 284.250315 243.225000, 90.000000 243.225000" style="stroke: rgb(96%,96%,96%); stroke-linecap: butt; stroke-width: 1; fill: rgb(96%,96%,96%);" />
+			<ns0:polygon points="90.000000 328.275000, 1709.886602 328.275000, 1709.886602 364.725000, 90.000000 364.725000" style="stroke: rgb(96%,96%,96%); stroke-linecap: butt; stroke-width: 1; fill: rgb(96%,96%,96%);" />
+			<ns0:path d="M 90.000000,346.500000 L 1709.886602,346.500000 Z" style="stroke: rgb(0%,0%,0%); stroke-linecap: butt; stroke-width: 1;" />
+			<ns0:path d="M 90.000000,225.000000 L 284.250315,225.000000 Z" style="stroke: rgb(0%,0%,0%); stroke-linecap: butt; stroke-width: 1;" />
+			<ns0:path d="M 90.000000,103.500000 L 284.023520,103.500000 Z" style="stroke: rgb(0%,0%,0%); stroke-linecap: butt; stroke-width: 1;" />
+			<ns0:polygon points="170.625787 107.145, 99.1125 107.145, 99.1125 112.6125, 90.0 103.5, 99.1125 94.3875, 99.1125 99.855, 170.625787 99.855" style="stroke: rgb(0%,0%,0%); stroke-linecap: round; stroke-width: 1; fill: rgb(47%,65%,80%);" />
+			<ns0:polygon points="283.910122 228.64499999999998, 212.396834 228.64499999999998, 212.396834 234.1125, 203.284334 225.0, 212.396834 215.8875, 212.396834 221.35500000000002, 283.910122 221.35500000000002" style="stroke: rgb(0%,0%,0%); stroke-linecap: round; stroke-width: 1; fill: rgb(47%,65%,80%);" />
+			<ns0:polygon points="114.153717 350.145, 146.544787 350.145, 146.544787 355.6125, 155.657287 346.5, 146.544787 337.3875, 146.544787 342.85499999999996, 114.153717 342.85499999999996" style="stroke: rgb(50%,50%,50%); stroke-linecap: round; stroke-width: 1; fill: rgb(82%,82%,82%);" />
+			<ns0:polygon points="176.068879 350.145, 194.171834 350.145, 194.171834 355.6125, 203.284334 346.5, 194.171834 337.3875, 194.171834 342.85499999999996, 176.068879 342.85499999999996" style="stroke: rgb(50%,50%,50%); stroke-linecap: round; stroke-width: 1; fill: rgb(82%,82%,82%);" />
+			<ns0:polygon points="344.464511 353.790000, 221.509334 353.790000, 221.509334 364.725000, 203.284334 346.500000, 221.509334 328.275000, 221.509334 339.210000, 344.464511 339.210000" style="stroke: rgb(0%,0%,0%); stroke-linecap: round; stroke-width: 1; fill: rgb(100%,89%,53%);" />
+			<ns0:polygon points="579.764805 353.790000, 366.318238 353.790000, 366.318238 364.725000, 348.093238 346.500000, 366.318238 328.275000, 366.318238 339.210000, 579.764805 339.210000" style="stroke: rgb(0%,0%,0%); stroke-linecap: round; stroke-width: 1; fill: rgb(100%,89%,53%);" />
+			<ns0:polygon points="649.164217 353.790000, 624.184681 353.790000, 624.184681 364.725000, 605.959681 346.500000, 624.184681 328.275000, 624.184681 339.210000, 649.164217 339.210000" style="stroke: rgb(0%,0%,0%); stroke-linecap: round; stroke-width: 1; fill: rgb(97%,58%,54%);" />
+			<ns0:polygon points="807.127257 353.790000, 668.863387 353.790000, 668.863387 364.725000, 650.638387 346.500000, 668.863387 328.275000, 668.863387 339.210000, 807.127257 339.210000" style="stroke: rgb(0%,0%,0%); stroke-linecap: round; stroke-width: 1; fill: rgb(82%,65%,63%);" />
+			<ns0:polygon points="915.875682 353.790000, 837.826008 353.790000, 837.826008 364.725000, 819.601008 346.500000, 837.826008 328.275000, 837.826008 339.210000, 915.875682 339.210000" style="stroke: rgb(0%,0%,0%); stroke-linecap: round; stroke-width: 1; fill: rgb(82%,65%,63%);" />
+			<ns0:polygon points="1043.561529 353.790000, 935.234660 353.790000, 935.234660 364.725000, 917.009660 346.500000, 935.234660 328.275000, 935.234660 339.210000, 1043.561529 339.210000" style="stroke: rgb(0%,0%,0%); stroke-linecap: round; stroke-width: 1; fill: rgb(97%,58%,54%);" />
+			<ns0:polygon points="1207.081058 353.790000, 1063.714290 353.790000, 1063.714290 364.725000, 1045.489290 346.500000, 1063.714290 328.275000, 1063.714290 339.210000, 1207.081058 339.210000" style="stroke: rgb(0%,0%,0%); stroke-linecap: round; stroke-width: 1; fill: rgb(97%,58%,54%);" />
+			<ns0:polygon points="1254.481310 353.790000, 1370.632623 353.790000, 1370.632623 364.725000, 1388.857623 346.500000, 1370.632623 328.275000, 1370.632623 339.210000, 1254.481310 339.210000" style="stroke: rgb(0%,0%,0%); stroke-linecap: round; stroke-width: 1; fill: rgb(48%,80%,74%);" />
+			<ns0:polygon points="1396.908862 353.790000, 1500.813219 353.790000, 1500.813219 364.725000, 1519.038219 346.500000, 1500.813219 328.275000, 1500.813219 339.210000, 1396.908862 339.210000" style="stroke: rgb(0%,0%,0%); stroke-linecap: round; stroke-width: 1; fill: rgb(48%,80%,74%);" />
+			<ns0:polygon points="1518.924822 353.790000, 1591.191212 353.790000, 1591.191212 364.725000, 1609.416212 346.500000, 1591.191212 328.275000, 1591.191212 339.210000, 1518.924822 339.210000" style="stroke: rgb(0%,0%,0%); stroke-linecap: round; stroke-width: 1; fill: rgb(48%,80%,74%);" />
+			<ns0:polygon points="1608.962621 353.790000, 1664.899738 353.790000, 1664.899738 364.725000, 1683.124738 346.500000, 1664.899738 328.275000, 1664.899738 339.210000, 1608.962621 339.210000" style="stroke: rgb(0%,0%,0%); stroke-linecap: round; stroke-width: 1; fill: rgb(48%,80%,74%);" />
+			<ns0:path d="M 284.023520,85.275000 L 284.023520,121.725000 Z" style="stroke: rgb(0%,0%,0%); stroke-linecap: butt; stroke-width: 1;" />
+			<ns0:path d="M 90.000000,85.275000 L 90.000000,121.725000 Z" style="stroke: rgb(0%,0%,0%); stroke-linecap: butt; stroke-width: 1;" />
+			<ns0:path d="M 284.250315,206.775000 L 284.250315,243.225000 Z" style="stroke: rgb(0%,0%,0%); stroke-linecap: butt; stroke-width: 1;" />
+			<ns0:path d="M 90.000000,206.775000 L 90.000000,243.225000 Z" style="stroke: rgb(0%,0%,0%); stroke-linecap: butt; stroke-width: 1;" />
+			<ns0:path d="M 1709.886602,328.275000 L 1709.886602,364.725000 Z" style="stroke: rgb(0%,0%,0%); stroke-linecap: butt; stroke-width: 1;" />
+			<ns0:path d="M 90.000000,328.275000 L 90.000000,364.725000 Z" style="stroke: rgb(0%,0%,0%); stroke-linecap: butt; stroke-width: 1;" />
+			<ns0:g transform=" matrix(1.000000, 0.000000, -0.000000, 1.000000, 90.0, 382.725)"><ns0:text style="font-family: Helvetica; font-size: 18px; fill: rgb(0%,0%,0%);" transform="translate(0,0) scale(1,-1)" x="0" y="0">NODE_34</ns0:text></ns0:g><ns0:g transform=" matrix(1.000000, 0.000000, -0.000000, 1.000000, 90.0, 261.225)"><ns0:text style="font-family: Helvetica; font-size: 18px; fill: rgb(0%,0%,0%);" transform="translate(0,0) scale(1,-1)" x="0" y="0">NODE_30</ns0:text></ns0:g><ns0:g transform=" matrix(1.000000, 0.000000, -0.000000, 1.000000, 90.0, 139.725)"><ns0:text style="font-family: Helvetica; font-size: 18px; fill: rgb(0%,0%,0%);" transform="translate(0,0) scale(1,-1)" x="0" y="0">NODE_23</ns0:text></ns0:g><ns0:g transform=" matrix(1.000000, 0.000000, -0.000000, 1.000000, 90.000000, 73.275)">
+				<ns0:text style="font-family: Helvetica; font-size: 12px; fill: rgb(0%,0%,0%);" transform="translate(0,0) scale(1,-1)" x="0" y="0" />
+			</ns0:g>
+			<ns0:g transform=" matrix(1.000000, 0.000000, -0.000000, 1.000000, 203.284334, 194.775)">
+				<ns0:text style="font-family: Helvetica; font-size: 12px; fill: rgb(0%,0%,0%);" transform="translate(0,0) scale(1,-1)" x="0" y="0" />
+			</ns0:g>
+			<ns0:g transform=" matrix(1.000000, 0.000000, -0.000000, 1.000000, 114.153717, 367.725)">
+				<ns0:text style="font-family: Helvetica; font-size: 12px; fill: rgb(0%,0%,0%);" transform="translate(0,0) scale(1,-1)" x="0" y="0" />
+			</ns0:g>
+			<ns0:g transform=" matrix(1.000000, 0.000000, -0.000000, 1.000000, 176.068879, 367.725)">
+				<ns0:text style="font-family: Helvetica; font-size: 12px; fill: rgb(0%,0%,0%);" transform="translate(0,0) scale(1,-1)" x="0" y="0" />
+			</ns0:g>
+			<ns0:g transform=" matrix(1.000000, 0.000000, -0.000000, 1.000000, 203.284334, 316.275)">
+				<ns0:text style="font-family: Helvetica; font-size: 12px; fill: rgb(0%,0%,0%);" transform="translate(0,0) scale(1,-1)" x="0" y="0">hcsB</ns0:text>
+			</ns0:g>
+			<ns0:g transform=" matrix(1.000000, 0.000000, -0.000000, 1.000000, 348.093238, 316.275)">
+				<ns0:text style="font-family: Helvetica; font-size: 12px; fill: rgb(0%,0%,0%);" transform="translate(0,0) scale(1,-1)" x="0" y="0">hcsA</ns0:text>
+			</ns0:g>
+			<ns0:g transform=" matrix(1.000000, 0.000000, -0.000000, 1.000000, 605.959681, 316.275)">
+				<ns0:text style="font-family: Helvetica; font-size: 12px; fill: rgb(0%,0%,0%);" transform="translate(0,0) scale(1,-1)" x="0" y="0">acs4</ns0:text>
+			</ns0:g>
+			<ns0:g transform=" matrix(1.000000, 0.000000, -0.000000, 1.000000, 650.638387, 316.275)">
+				<ns0:text style="font-family: Helvetica; font-size: 12px; fill: rgb(0%,0%,0%);" transform="translate(0,0) scale(1,-1)" x="0" y="0">acs3</ns0:text>
+			</ns0:g>
+			<ns0:g transform=" matrix(1.000000, 0.000000, -0.000000, 1.000000, 819.601008, 316.275)">
+				<ns0:text style="font-family: Helvetica; font-size: 12px; fill: rgb(0%,0%,0%);" transform="translate(0,0) scale(1,-1)" x="0" y="0">acs3</ns0:text>
+			</ns0:g>
+			<ns0:g transform=" matrix(1.000000, 0.000000, -0.000000, 1.000000, 917.009660, 316.275)">
+				<ns0:text style="font-family: Helvetica; font-size: 12px; fill: rgb(0%,0%,0%);" transform="translate(0,0) scale(1,-1)" x="0" y="0">acs2</ns0:text>
+			</ns0:g>
+			<ns0:g transform=" matrix(1.000000, 0.000000, -0.000000, 1.000000, 1045.489290, 316.275)">
+				<ns0:text style="font-family: Helvetica; font-size: 12px; fill: rgb(0%,0%,0%);" transform="translate(0,0) scale(1,-1)" x="0" y="0">acs1</ns0:text>
+			</ns0:g>
+			<ns0:g transform=" matrix(1.000000, 0.000000, -0.000000, 1.000000, 1254.481310, 367.725)">
+				<ns0:text style="font-family: Helvetica; font-size: 12px; fill: rgb(0%,0%,0%);" transform="translate(0,0) scale(1,-1)" x="0" y="0">bexD</ns0:text>
+			</ns0:g>
+			<ns0:g transform=" matrix(1.000000, 0.000000, -0.000000, 1.000000, 1396.908862, 367.725)">
+				<ns0:text style="font-family: Helvetica; font-size: 12px; fill: rgb(0%,0%,0%);" transform="translate(0,0) scale(1,-1)" x="0" y="0">bexC</ns0:text>
+			</ns0:g>
+			<ns0:g transform=" matrix(1.000000, 0.000000, -0.000000, 1.000000, 1518.924822, 367.725)">
+				<ns0:text style="font-family: Helvetica; font-size: 12px; fill: rgb(0%,0%,0%);" transform="translate(0,0) scale(1,-1)" x="0" y="0">bexB</ns0:text>
+			</ns0:g>
+			<ns0:g transform=" matrix(1.000000, 0.000000, -0.000000, 1.000000, 1608.962621, 367.725)">
+				<ns0:text style="font-family: Helvetica; font-size: 12px; fill: rgb(0%,0%,0%);" transform="translate(0,0) scale(1,-1)" x="0" y="0">bexA</ns0:text>
+			</ns0:g>
+			</ns0:g>
+	</ns0:g>
+</ns0:svg>
