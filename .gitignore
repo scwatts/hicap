@@ -3,3 +3,18 @@
 venv/
 __pycache__/
 other/
+
+docs_private/
+
+# nextflow files
+nextflow-hicap/work/
+nextflow-hicap/.nextflow.log*
+nextflow-hicap/.nextflow/
+nextflow-hicap/data/primer_info
+nextflow-hicap/data/sample_ids
+nextflow-hicap/results/output/
+nextflow-hicap/results/detection_results.csv
+nextflow-hicap/results/detection_results_wide.csv  
+nextflow-hicap/results/hicap_summary.csv
+nextflow-hicap/working-script.nf
+nextflow-hicap/extra.nf
