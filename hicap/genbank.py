@@ -42,8 +42,10 @@ def create_genbank_record(locus_data, contig_sequences):
 def create_base_records(contig_sequences):
     # For some programs (like EMBOSS seqret) to parse the output correctly, there must be a valid
     # entry between '^ORGANISM +\.$'. The 'COMMENT' field works for this purpose
-    anno = {'comment': 'created by hicap'}
-    anno['molecule_type'] = 'DNA'
+    anno = {
+        'comment': 'created by hicap',
+        'molecule_type': 'DNA',
+    }
     position_deltas = dict()
     gb_records = dict()
     for contig, (position_delta, sequence) in contig_sequences.items():
