@@ -1,4 +1,3 @@
-import Bio.Alphabet
 import Bio.Graphics.GenomeDiagram
 import Bio.Seq
 import Bio.SeqFeature
@@ -43,11 +42,14 @@ def create_genbank_record(locus_data, contig_sequences):
 def create_base_records(contig_sequences):
     # For some programs (like EMBOSS seqret) to parse the output correctly, there must be a valid
     # entry between '^ORGANISM +\.$'. The 'COMMENT' field works for this purpose
-    anno = {'comment': 'created by hicap'}
+    anno = {
+        'comment': 'created by hicap',
+        'molecule_type': 'DNA',
+    }
     position_deltas = dict()
     gb_records = dict()
     for contig, (position_delta, sequence) in contig_sequences.items():
-        sequence_record = Bio.Seq.Seq(sequence, Bio.Alphabet.IUPAC.unambiguous_dna)
+        sequence_record = Bio.Seq.Seq(sequence)
         gb_records[contig] = Bio.SeqRecord.SeqRecord(seq=sequence_record, name=contig, annotations=anno)
         position_deltas[contig] = position_delta
     return position_deltas, gb_records
