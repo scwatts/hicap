@@ -28,9 +28,9 @@ import hicap.utility
 class CommandExecuteTestCase(unittest.TestCase):
 
     def test_execute_command_1(self):
-        result = hicap.utility.execute_command('echo -n test')
+        result = hicap.utility.execute_command('echo test')
         self.assertEqual(result.returncode, 0)
-        self.assertEqual(result.stdout, 'test')
+        self.assertEqual(result.stdout.rstrip(), 'test')
         self.assertEqual(result.stderr, '')
 
     def test_execute_command_2(self):

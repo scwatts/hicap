@@ -1,0 +1,22 @@
+name: install
+on: [push]
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          conda-solver: "libmamba"
+          python-version: "3.11"
+          channels: bioconda,conda-forge,defaults
+      - name: Conda install
+        shell: bash -el {0}
+        run: conda install 'python >=3.6' 'biopython ==1.72' 'reportlab ==3.4.0' 'prodigal >=2.6.1' 'blast >=2.2.28'
+      - name: Install
+        shell: bash -el {0}
+        run: pip install .
+      - name: Check install
+        shell: bash -el {0}
+        run: (hicap --version | grep hicap) || exit 1

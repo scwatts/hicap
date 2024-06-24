@@ -82,7 +82,9 @@ def check_dependencies():
 
 
 def read_fasta(filepath):
-    with filepath.open('r') as fh:
+    import gzip
+    
+    with (gzip.open(filepath, 'rt') if filepath.name.endswith('gz') else open(filepath, 'rt')) as fh:
         # TODO: cleaner way to do this?
         fasta = {desc: seq for desc, seq in Bio.SeqIO.FastaIO.SimpleFastaParser(fh)}
     if not fasta:
