@@ -39,7 +39,7 @@ If you use this tool, please cite the `hicap` paper:
 There are a couple of software dependencies that are required.
 
 - `Python`, version 3.6 or above with the following packages:
-  - `Biopython`, version 1.63 or above
+  - `Biopython`, version 1.79 or above
   - `ReportLab`, version 3.5.0 or above
 - `Prodigal`, version 2.6.1 or above
 - `BLAST+`, version 2.2.28 or above. Commands used are:
